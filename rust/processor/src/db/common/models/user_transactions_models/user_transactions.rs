@@ -93,7 +93,7 @@ impl UserTransaction {
                             })
                         }
                         _ => {
-                            tracing::warn!("Unexpected payload type for transaction");
+                            tracing::warn!("Unexpected payload type for transaction. Version: {}", version);
                             serde_json::Value::Null
                         }
                     },

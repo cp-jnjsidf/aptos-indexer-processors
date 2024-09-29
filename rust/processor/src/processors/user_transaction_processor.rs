@@ -110,7 +110,7 @@ fn insert_user_transactions_query(
             .do_update()
             .set((
                 expiration_timestamp_secs.eq(excluded(expiration_timestamp_secs)),
-                inserted_at.eq(excluded(inserted_at)),
+                inserted_at.eq(now),
             )),
         None,
     )
