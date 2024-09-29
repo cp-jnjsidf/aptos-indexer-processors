@@ -171,9 +171,25 @@ impl ProcessorTrait for UserTransactionProcessor {
                     continue;
                 },
             };
+
+            let info_txn = match txn.info.as_ref() {
+                Some(info_txn) => info_txn,
+                None => {
+                    PROCESSOR_UNKNOWN_TYPE_COUNT
+                        .with_label_values(&["UserTransactionProcessor"])
+                        .inc();
+                    tracing::warn!(
+                        transaction_version = txn_version,
+                        "Transaction info doesn't exist"
+                    );
+                    continue;
+                },
+            };
+
             if let TxnData::User(inner) = txn_data {
                 let (user_transaction, sigs) = UserTransactionModel::from_transaction(
                     inner,
+                    info_txn,
                     txn.timestamp.as_ref().unwrap(),
                     block_height,
                     txn.epoch as i64,

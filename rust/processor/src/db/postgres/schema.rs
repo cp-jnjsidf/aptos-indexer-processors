@@ -1246,11 +1246,13 @@ diesel::table! {
         max_gas_amount -> Numeric,
         expiration_timestamp_secs -> Timestamp,
         gas_unit_price -> Numeric,
+        gas_used -> Numeric,
         timestamp -> Timestamp,
         #[max_length = 1000]
         entry_function_id_str -> Varchar,
         inserted_at -> Timestamp,
         epoch -> Int8,
+        tx_args -> Nullable<Jsonb>,
     }
 }
 
