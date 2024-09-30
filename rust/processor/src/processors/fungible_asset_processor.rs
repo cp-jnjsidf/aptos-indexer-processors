@@ -32,7 +32,7 @@ use crate::{
 };
 use ahash::AHashMap;
 use anyhow::bail;
-use aptos_protos::transaction::v1::{transaction::TxnData, write_set_change::Change, Transaction};
+use aptos_protos::transaction::v1::{transaction::TxnData, write_set_change::Change, Transaction, transaction_payload::Payload as PayloadType};
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use diesel::{
@@ -43,6 +43,15 @@ use diesel::{
 use rayon::prelude::*;
 use std::fmt::Debug;
 use tracing::error;
+
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn current_time_in_milliseconds() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis() as i64
+}
 
 pub struct FungibleAssetProcessor {
     connection_pool: ArcDbPool,
@@ -504,20 +513,54 @@ async fn parse_v2_coin(
             let txn_epoch = txn.epoch as i64;
 
             let default = vec![];
-            let (events, user_request, entry_function_id_str) = match txn_data {
-                TxnData::BlockMetadata(tx_inner) => (&tx_inner.events, None, None),
-                TxnData::Validator(tx_inner) => (&tx_inner.events, None, None),
-                TxnData::Genesis(tx_inner) => (&tx_inner.events, None, None),
+            let (events, user_request, entry_function_id_str, sender, txn_args) = match txn_data {
+                TxnData::BlockMetadata(tx_inner) => (&tx_inner.events, None, None, None, None),
+                TxnData::Validator(tx_inner) => (&tx_inner.events, None, None, None, None),
+                TxnData::Genesis(tx_inner) => (&tx_inner.events, None, None, None, None),
                 TxnData::User(tx_inner) => {
                     let user_request = tx_inner
                         .request
                         .as_ref()
                         .expect("Sends is not present in user txn");
                     let entry_function_id_str = get_entry_function_from_user_request(user_request);
-                    (&tx_inner.events, Some(user_request), entry_function_id_str)
+                    let sender = Some(standardize_address(&user_request.sender));
+                    let txn_args: serde_json::Value = match &user_request.payload {
+                        Some(payload) => match payload.payload.as_ref() {
+                            Some(PayloadType::EntryFunctionPayload(function_payload)) => {
+                                serde_json::to_value(&function_payload.arguments).unwrap_or_else(|err| {
+                                    tracing::warn!("Failed to serialize arguments to JSON: {:?}", err);
+                                    serde_json::Value::Null
+                                })
+                            }
+                            Some(PayloadType::ScriptPayload(script_payload)) => {
+                                serde_json::to_value(&script_payload.arguments).unwrap_or_else(|err| {
+                                    tracing::warn!("Failed to serialize arguments to JSON: {:?}", err);
+                                    serde_json::Value::Null
+                                })
+                            }
+                            Some(PayloadType::WriteSetPayload(_write_set_payload)) => {
+                                serde_json::Value::Null // Return null for WriteSetPayload
+                            }
+                            Some(PayloadType::MultisigPayload(_multisig_payload)) => {
+                                serde_json::Value::Null // Return null for WriteSetPayload
+                            }
+                            _ => {
+                                tracing::warn!("Unexpected payload type for transaction. Version: {}", txn_version);
+                                serde_json::Value::Null
+                            }
+                        },
+                        None => {
+                            tracing::warn!("Payload is not present in user transaction");
+                            serde_json::Value::Null
+                        }
+                    };                    
+                    (&tx_inner.events, Some(user_request), entry_function_id_str, sender, Some(txn_args))
                 },
-                _ => (&default, None, None),
+                _ => (&default, None, None, None, None),
             };
+
+            let txn_hash = standardize_address(hex::encode(transaction_info.hash.as_slice()).as_str());
+            let txn_timestamp_id = current_time_in_milliseconds();
 
             // This is because v1 events (deposit/withdraw) don't have coin type so the only way is to match
             // the event to the resource using the event guid
@@ -639,6 +682,8 @@ async fn parse_v2_coin(
                     txn_timestamp,
                     block_height,
                     fee_statement,
+                    &txn_args,
+                    txn_timestamp_id,
                 );
                 fungible_asset_activities.push(gas_event);
             }
@@ -653,6 +698,10 @@ async fn parse_v2_coin(
                     &entry_function_id_str,
                     &event_to_v1_coin_type,
                     index as i64,
+                    &txn_hash,
+                    &sender,
+                    &txn_args,
+                    txn_timestamp_id,
                 )
                 .unwrap_or_else(|e| {
                     tracing::error!(
@@ -672,6 +721,10 @@ async fn parse_v2_coin(
                     index as i64,
                     &entry_function_id_str,
                     &fungible_asset_object_helper,
+                    &txn_hash,
+                    &sender,
+                    &txn_args,
+                    txn_timestamp_id,
                 )
                 .unwrap_or_else(|e| {
                     tracing::error!(

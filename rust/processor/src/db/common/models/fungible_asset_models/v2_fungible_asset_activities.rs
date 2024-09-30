@@ -47,6 +47,8 @@ pub struct FungibleAssetActivity {
     pub asset_type: Option<String>,
     pub is_frozen: Option<bool>,
     pub amount: Option<BigDecimal>,
+    pub number_used_gas_units : Option<BigDecimal>,
+    pub max_gas_price : Option<BigDecimal>,
     pub type_: String,
     pub is_gas_fee: bool,
     pub gas_fee_payer_address: Option<String>,
@@ -56,6 +58,10 @@ pub struct FungibleAssetActivity {
     pub token_standard: String,
     pub transaction_timestamp: chrono::NaiveDateTime,
     pub storage_refund_amount: BigDecimal,
+    pub sender : Option<String>,
+    pub txn_hash: String,
+    pub txn_args: Option<serde_json::Value>,
+    pub txn_timestamp_id : i64,
 }
 
 impl FungibleAssetActivity {
@@ -67,6 +73,10 @@ impl FungibleAssetActivity {
         event_index: i64,
         entry_function_id_str: &Option<String>,
         object_aggregated_data_mapping: &ObjectAggregatedDataMapping,
+        txn_hash : &String,
+        sender : &Option<String>,
+        txn_args: &Option<serde_json::Value>,
+        txn_timestamp_id : i64,
     ) -> anyhow::Result<Option<Self>> {
         let event_type = event.type_str.clone();
         if let Some(fa_event) =
@@ -123,6 +133,8 @@ impl FungibleAssetActivity {
                 asset_type: maybe_asset_type,
                 is_frozen,
                 amount,
+                number_used_gas_units: None,
+                max_gas_price: None,
                 type_: event_type.clone(),
                 is_gas_fee: false,
                 gas_fee_payer_address: None,
@@ -131,7 +143,11 @@ impl FungibleAssetActivity {
                 block_height,
                 token_standard: TokenStandard::V2.to_string(),
                 transaction_timestamp: txn_timestamp,
+                sender: sender.clone(),
+                txn_hash: txn_hash.to_string(),
+                txn_args: txn_args.clone(),
                 storage_refund_amount: BigDecimal::zero(),
+                txn_timestamp_id,
             }));
         }
         Ok(None)
@@ -145,6 +161,10 @@ impl FungibleAssetActivity {
         entry_function_id_str: &Option<String>,
         event_to_coin_type: &EventToCoinType,
         event_index: i64,
+        txn_hash : &String,
+        sender : &Option<String>,
+        txn_args: &Option<serde_json::Value>,
+        txn_timestamp_id : i64,
     ) -> anyhow::Result<Option<Self>> {
         if let Some(inner) =
             CoinEvent::from_event(event.type_str.as_str(), &event.data, txn_version)?
@@ -194,6 +214,8 @@ impl FungibleAssetActivity {
                 asset_type: Some(coin_type),
                 is_frozen: None,
                 amount: Some(amount),
+                number_used_gas_units: None,
+                max_gas_price: None,
                 type_: event.type_str.clone(),
                 is_gas_fee: false,
                 gas_fee_payer_address: None,
@@ -203,6 +225,10 @@ impl FungibleAssetActivity {
                 token_standard: TokenStandard::V1.to_string(),
                 transaction_timestamp,
                 storage_refund_amount: BigDecimal::zero(),
+                sender: sender.clone(),
+                txn_hash: txn_hash.clone(),
+                txn_args: txn_args.clone(),
+                txn_timestamp_id,
             }))
         } else {
             Ok(None)
@@ -219,7 +245,11 @@ impl FungibleAssetActivity {
         transaction_timestamp: chrono::NaiveDateTime,
         block_height: i64,
         fee_statement: Option<FeeStatement>,
+        txn_args: &Option<serde_json::Value>,
+        txn_timestamp_id : i64,
     ) -> Self {
+        let txn_hash = standardize_address(hex::encode(txn_info.hash.as_slice()).as_str());
+        let sender = standardize_address(&user_transaction_request.sender);
         let v1_activity = CoinActivity::get_gas_event(
             txn_info,
             user_transaction_request,
@@ -241,6 +271,8 @@ impl FungibleAssetActivity {
             asset_type: Some(v1_activity.coin_type),
             is_frozen: None,
             amount: Some(v1_activity.amount),
+            number_used_gas_units: Some(BigDecimal::from(txn_info.gas_used)),
+            max_gas_price: Some(BigDecimal::from(user_transaction_request.max_gas_amount)),
             type_: v1_activity.activity_type,
             is_gas_fee: v1_activity.is_gas_fee,
             gas_fee_payer_address: v1_activity.gas_fee_payer_address,
@@ -250,6 +282,10 @@ impl FungibleAssetActivity {
             token_standard: TokenStandard::V1.to_string(),
             transaction_timestamp,
             storage_refund_amount: v1_activity.storage_refund_amount,
+            txn_timestamp_id,
+            txn_hash,
+            sender: Some(sender),
+            txn_args: txn_args.clone(),
         }
     }
 }

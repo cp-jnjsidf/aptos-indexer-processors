@@ -778,6 +778,8 @@ diesel::table! {
         asset_type -> Nullable<Varchar>,
         is_frozen -> Nullable<Bool>,
         amount -> Nullable<Numeric>,
+        number_used_gas_units ->  Nullable<Numeric>,
+        max_gas_price -> Nullable<Numeric>,
         #[sql_name = "type"]
         type_ -> Varchar,
         is_gas_fee -> Bool,
@@ -791,6 +793,12 @@ diesel::table! {
         token_standard -> Varchar,
         transaction_timestamp -> Timestamp,
         inserted_at -> Timestamp,
+        #[max_length = 66]
+        txn_hash -> Varchar,
+        #[max_length = 66]
+        sender -> Nullable<Varchar>,
+        txn_args -> Nullable<Jsonb>,
+        txn_timestamp_id -> Int8,
         storage_refund_amount -> Numeric,
     }
 }
