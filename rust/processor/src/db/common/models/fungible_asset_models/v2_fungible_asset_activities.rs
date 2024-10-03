@@ -289,7 +289,7 @@ impl FungibleAssetActivity {
         );
         let maybe_coin_store_balance = coin_storage_balance.get(&storage_id);
         let balance = maybe_coin_store_balance.cloned().unwrap_or_else(|| {
-            println!("v1 gas: Storage ID '{}' not found inside the write resources for txn version '{}'", storage_id, transaction_version);
+           // in cse of gas it is possible to be missing the storage id it is not mandatory
             BigDecimal::from(0) // Return BigDecimal value 0 when None is found
         });
         Self {
