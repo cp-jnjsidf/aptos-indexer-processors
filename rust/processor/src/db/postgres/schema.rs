@@ -800,6 +800,7 @@ diesel::table! {
         txn_args -> Nullable<Jsonb>,
         txn_timestamp_id -> Int8,
         storage_refund_amount -> Numeric,
+        balance -> Numeric,
     }
 }
 

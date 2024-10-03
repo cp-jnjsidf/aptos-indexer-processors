@@ -10,7 +10,7 @@ use crate::{
     db::common::models::{
         coin_models::{
             coin_activities::CoinActivity,
-            coin_utils::{CoinEvent, CoinInfoType, EventGuidResource},
+            coin_utils::{CoinEvent, CoinInfoType, EventGuidResource, CoinStorageBalace},
         },
         object_models::v2_object_utils::ObjectAggregatedDataMapping,
         token_v2_models::v2_token_utils::TokenStandard,
@@ -62,6 +62,7 @@ pub struct FungibleAssetActivity {
     pub txn_hash: String,
     pub txn_args: Option<serde_json::Value>,
     pub txn_timestamp_id : i64,
+    pub balance : BigDecimal,
 }
 
 impl FungibleAssetActivity {
@@ -125,6 +126,19 @@ impl FungibleAssetActivity {
                 .and_then(|metadata| metadata.fungible_asset_store.as_ref())
                 .map(|fa| fa.metadata.get_reference_address());
 
+                let balance = maybe_object_metadata
+                    .and_then(|object_metadata| {
+                        object_metadata
+                            .fungible_asset_store
+                            .as_ref()
+                            .map(|fungible_asset_store| fungible_asset_store.balance.clone())
+                    })
+                    .unwrap_or_else(|| {
+                        // Print an error message indicating the balance was not found
+                        println!("v2: Storage ID '{}' not found inside the write resources for txn version '{}'", storage_id, txn_version);
+                        BigDecimal::from(0) // Return a BigDecimal value of 0
+                    });
+
             return Ok(Some(Self {
                 transaction_version: txn_version,
                 event_index,
@@ -148,6 +162,7 @@ impl FungibleAssetActivity {
                 txn_args: txn_args.clone(),
                 storage_refund_amount: BigDecimal::zero(),
                 txn_timestamp_id,
+                balance,
             }));
         }
         Ok(None)
@@ -159,6 +174,7 @@ impl FungibleAssetActivity {
         block_height: i64,
         transaction_timestamp: chrono::NaiveDateTime,
         entry_function_id_str: &Option<String>,
+        coin_storage_balance: &CoinStorageBalace,
         event_to_coin_type: &EventToCoinType,
         event_index: i64,
         txn_hash : &String,
@@ -206,6 +222,12 @@ impl FungibleAssetActivity {
             let storage_id =
                 CoinInfoType::get_storage_id(coin_type.as_str(), owner_address.as_str());
 
+            let maybe_coin_store_balance = coin_storage_balance.get(&storage_id);
+
+            let coin_store_balance = maybe_coin_store_balance.cloned().unwrap_or_else(|| {
+                println!("v1: Storage ID '{}' not found inside the write resources for txn version '{}'", storage_id, txn_version);
+                BigDecimal::from(0) // Return BigDecimal value 0 when None is found
+            });
             Ok(Some(Self {
                 transaction_version: txn_version,
                 event_index,
@@ -229,6 +251,7 @@ impl FungibleAssetActivity {
                 txn_hash: txn_hash.clone(),
                 txn_args: txn_args.clone(),
                 txn_timestamp_id,
+                balance : coin_store_balance,
             }))
         } else {
             Ok(None)
@@ -241,6 +264,7 @@ impl FungibleAssetActivity {
         txn_info: &TransactionInfo,
         user_transaction_request: &UserTransactionRequest,
         entry_function_id_str: &Option<String>,
+        coin_storage_balance: &CoinStorageBalace,
         transaction_version: i64,
         transaction_timestamp: chrono::NaiveDateTime,
         block_height: i64,
@@ -263,6 +287,11 @@ impl FungibleAssetActivity {
             v1_activity.coin_type.as_str(),
             v1_activity.owner_address.as_str(),
         );
+        let maybe_coin_store_balance = coin_storage_balance.get(&storage_id);
+        let balance = maybe_coin_store_balance.cloned().unwrap_or_else(|| {
+            println!("v1 gas: Storage ID '{}' not found inside the write resources for txn version '{}'", storage_id, transaction_version);
+            BigDecimal::from(0) // Return BigDecimal value 0 when None is found
+        });
         Self {
             transaction_version,
             event_index: v1_activity.event_index.unwrap(),
@@ -286,6 +315,7 @@ impl FungibleAssetActivity {
             txn_hash,
             sender: Some(sender),
             txn_args: txn_args.clone(),
+            balance,
         }
     }
 }

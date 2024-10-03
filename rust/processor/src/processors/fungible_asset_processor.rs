@@ -5,6 +5,7 @@ use super::{DefaultProcessingResult, ProcessorName, ProcessorTrait};
 use crate::{
     db::common::models::{
         coin_models::coin_supply::CoinSupply,
+        coin_models::coin_utils::{CoinResource, CoinStorageBalace, CoinInfoType},
         fungible_asset_models::{
             v2_fungible_asset_activities::{EventToCoinType, FungibleAssetActivity},
             v2_fungible_asset_balances::{
@@ -50,7 +51,7 @@ fn current_time_in_milliseconds() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
-        .as_millis() as i64
+        .as_nanos() as i64
 }
 
 pub struct FungibleAssetProcessor {
@@ -487,7 +488,7 @@ async fn parse_v2_coin(
 
             // Get Metadata for fungible assets by object
             let mut fungible_asset_object_helper: ObjectAggregatedDataMapping = AHashMap::new();
-
+            let mut coin_storage_balance_helper: CoinStorageBalace = AHashMap::new(); 
             let txn_version = txn.version as i64;
             let block_height = txn.block_height as i64;
             if txn.txn_data.is_none() {
@@ -568,7 +569,7 @@ async fn parse_v2_coin(
 
             // First loop to get all objects
             // Need to do a first pass to get all the objects
-            for wsc in transaction_info.changes.iter() {
+            for (wsc_index, wsc) in transaction_info.changes.iter().enumerate() {
                 if let Change::WriteResource(wr) = wsc.change.as_ref().unwrap() {
                     if let Some(object) =
                         ObjectWithMetadata::from_write_resource(wr, txn_version).unwrap()
@@ -580,6 +581,26 @@ async fn parse_v2_coin(
                                 ..ObjectAggregatedData::default()
                             },
                         );
+                    }
+
+                    if let Some(CoinResource::CoinStoreResource(coin_resource)) = 
+                        CoinResource::from_write_resource(wr, txn_version).unwrap()
+                    {        
+                        let coin_info_type = &CoinInfoType::from_move_type(
+                            &wr.r#type.as_ref().unwrap().generic_type_params[0],
+                            wr.type_str.as_ref(),
+                            txn_version,
+                            wsc_index as i64,
+                        );
+                        if let Some(coin_type) = coin_info_type.get_coin_type_below_max() {
+                            let owner_address = standardize_address(wr.address.as_str());
+                            let storage_id =
+                                CoinInfoType::get_storage_id(coin_type.as_str(), owner_address.as_str());
+                            coin_storage_balance_helper.insert(
+                                storage_id.clone(),
+                                coin_resource.coin.value.clone()
+                            );
+                        }
                     }
                 }
             }
@@ -678,6 +699,7 @@ async fn parse_v2_coin(
                     transaction_info,
                     req,
                     &entry_function_id_str,
+                    &coin_storage_balance_helper,
                     txn_version,
                     txn_timestamp,
                     block_height,
@@ -696,6 +718,7 @@ async fn parse_v2_coin(
                     block_height,
                     txn_timestamp,
                     &entry_function_id_str,
+                    &coin_storage_balance_helper,
                     &event_to_v1_coin_type,
                     index as i64,
                     &txn_hash,

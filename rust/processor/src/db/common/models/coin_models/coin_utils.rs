@@ -15,6 +15,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tracing::error;
+use ahash::AHashMap;
 
 pub const COIN_ADDR: &str = "0x0000000000000000000000000000000000000000000000000000000000000001";
 const COIN_TYPE_HASH_LENGTH: usize = 5000;
@@ -338,3 +339,5 @@ impl CoinEvent {
         ))
     }
 }
+
+pub type CoinStorageBalace = AHashMap<String, BigDecimal>;
