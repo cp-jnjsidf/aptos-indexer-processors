@@ -19,6 +19,7 @@ pub const QUERY_DEFAULT_RETRY_DELAY_MS: u64 = 500;
 #[serde(deny_unknown_fields)]
 pub struct IndexerGrpcProcessorConfig {
     pub processor_config: ProcessorConfig,
+    pub runner_id: Option<i64>,
     pub postgres_connection_string: String,
     // TODO: Add TLS support.
     pub indexer_grpc_data_service_address: Url,
@@ -87,6 +88,7 @@ impl RunnableConfig for IndexerGrpcProcessorConfig {
     async fn run(&self) -> Result<()> {
         let mut worker = Worker::new(
             self.processor_config.clone(),
+            self.runner_id.unwrap_or(0),
             self.postgres_connection_string.clone(),
             self.indexer_grpc_data_service_address.clone(),
             self.grpc_http2_config.clone(),

@@ -116,6 +116,7 @@ bitflags! {
 pub struct Worker {
     pub db_pool: ArcDbPool,
     pub processor_config: ProcessorConfig,
+    pub runner_id: i64,
     pub postgres_connection_string: String,
     pub indexer_grpc_data_service_address: Url,
     pub grpc_http2_config: IndexerGrpcHttp2Config,
@@ -138,6 +139,7 @@ impl Worker {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         processor_config: ProcessorConfig,
+        runner_id: i64,
         postgres_connection_string: String,
         indexer_grpc_data_service_address: Url,
         grpc_http2_config: IndexerGrpcHttp2Config,
@@ -161,6 +163,7 @@ impl Worker {
 
         info!(
             processor_name = processor_name,
+            runner_id = runner_id,
             service_type = PROCESSOR_SERVICE_TYPE,
             "[Parser] Creating connection pool"
         );
@@ -169,6 +172,7 @@ impl Worker {
             .context("Failed to create connection pool")?;
         info!(
             processor_name = processor_name,
+            runner_id = runner_id,
             service_type = PROCESSOR_SERVICE_TYPE,
             "[Parser] Finish creating the connection pool"
         );
@@ -184,6 +188,7 @@ impl Worker {
         Ok(Self {
             db_pool: conn_pool,
             processor_config,
+            runner_id,
             postgres_connection_string,
             indexer_grpc_data_service_address,
             grpc_http2_config,
@@ -211,8 +216,10 @@ impl Worker {
     /// 4. We will keep track of the last processed version and monitoring things like TPS
     pub async fn run(&mut self) {
         let processor_name = self.processor_config.name();
+        let runner_id = self.runner_id;
         info!(
             processor_name = processor_name,
+            runner_id = runner_id,
             service_type = PROCESSOR_SERVICE_TYPE,
             "[Parser] Running migrations"
         );
@@ -220,26 +227,29 @@ impl Worker {
         self.run_migrations().await;
         info!(
             processor_name = processor_name,
+            runner_id = runner_id,
             service_type = PROCESSOR_SERVICE_TYPE,
             duration_in_secs = migration_time.elapsed().as_secs_f64(),
             "[Parser] Finished migrations"
         );
 
-        let starting_version_from_db = self
-            .get_start_version()
-            .await
-            .expect("[Parser] Database error when getting starting version")
-            .unwrap_or_else(|| {
-                info!(
-                    processor_name = processor_name,
-                    service_type = PROCESSOR_SERVICE_TYPE,
-                    "[Parser] No starting version from db so starting from version 0"
-                );
-                0
-            });
+        let record_last_processed = self
+        .get_current_and_bound_version()
+        .await
+        .expect("[Parser] Database error when getting starting version");
+
+        let (starting_version_from_db, upper_bound_from_db) = record_last_processed.unwrap_or_else(|| {
+            info!(
+                processor_name = processor_name,
+                runner_id = runner_id,
+                service_type = PROCESSOR_SERVICE_TYPE,
+                "[Parser] No starting version from db, starting from version 0 and no upper bound."
+            );
+            (0, None) // Default to version 0 and no upper bound if nothing is found
+        });
 
         let starting_version = self.starting_version.unwrap_or(starting_version_from_db);
-
+        let ending_version = self.ending_version.or(upper_bound_from_db);
         info!(
             processor_name = processor_name,
             service_type = PROCESSOR_SERVICE_TYPE,
@@ -247,6 +257,9 @@ impl Worker {
             final_start_version = starting_version,
             start_version_from_config = self.starting_version,
             start_version_from_db = starting_version_from_db,
+            final_ending_version = ending_version,
+            ending_version_from_config = self.ending_version,
+            ending_version_from_db = upper_bound_from_db,
             "[Parser] Building processor",
         );
 
@@ -268,7 +281,6 @@ impl Worker {
 
         self.grpc_chain_id = Some(chain_id);
 
-        let ending_version = self.ending_version;
         let indexer_grpc_data_service_address = self.indexer_grpc_data_service_address.clone();
         let indexer_grpc_http2_ping_interval =
             self.grpc_http2_config.grpc_http2_ping_interval_in_secs();
@@ -282,7 +294,7 @@ impl Worker {
         // and write into a channel
         // TODO: change channel size based on number_concurrent_processing_tasks
         let (tx, receiver) = kanal::bounded_async::<TransactionsPBResponse>(BUFFER_SIZE);
-        let request_ending_version = self.ending_version;
+        let request_ending_version = ending_version;
         let auth_token = self.auth_token.clone();
         let transaction_filter = self.transaction_filter.clone();
         let grpc_response_item_timeout =
@@ -348,6 +360,7 @@ impl Worker {
                 gap_detector_clone,
                 gap_detector_receiver,
                 processor,
+                runner_id,
                 gap_detection_batch_size,
             )
             .await;
@@ -737,13 +750,13 @@ impl Worker {
     }
 
     /// Gets the start version for the processor. If not found, start from 0.
-    pub async fn get_start_version(&self) -> Result<Option<u64>> {
+    pub async fn get_current_and_bound_version(&self) -> anyhow::Result<Option<(u64, Option<u64>)>> {
         let mut conn = self.db_pool.get().await?;
 
-        match ProcessorStatusQuery::get_by_processor(self.processor_config.name(), &mut conn)
+        match ProcessorStatusQuery::get_by_processor(self.processor_config.name(), self.runner_id, &mut conn)
             .await?
         {
-            Some(status) => Ok(Some(status.last_success_version as u64 + 1)),
+            Some(status) => Ok(Some((status.last_success_version as u64 + 1, status.upper_bound.map(|v| v as u64)))),
             None => Ok(None),
         }
     }

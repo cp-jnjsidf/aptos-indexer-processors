@@ -1,0 +1,169 @@
+services:
+
+  index-processor-rust-user-transcations-new:
+    # build: ./aptos-indexer-processors/rust
+    image: oct3_balance
+    restart: always
+    depends_on:
+      db-test:
+        condition: service_healthy
+    volumes:
+      - ./config/config_user_transcations_new.yaml:/app/config/config.yaml
+    networks:
+      - aptos-network
+      - default
+    ports:
+      - "8088:8088"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "3"
+    
+    deploy:
+      resources:
+        limits:
+          cpus: "30"
+          memory: "250g"
+
+    command: ["--config-path", "/app/config/config.yaml"]
+
+  index-processor-coins-python:
+    build: ../../indexer/web3-security/indexer/python/
+    restart: always
+    environment:
+      DB_CONNECTION_URI: postgresql://postgres:postgres@db-test:5432/postgres
+      AUTH_TOKEN: ${AUTH_TOKEN}
+    depends_on:
+      db-test:
+        condition: service_healthy
+    volumes:
+      - ../../indexer/web3-security/indexer/config/config_custom_processor.yaml:/app/config/config.yaml
+    networks:
+      - aptos-network
+      - default
+    ports:
+      - "8085:8085"
+      - "8081:8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "2g"
+
+  mongo-new:
+    image: mongo:6.0
+    restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+      - MONGO_COLLECTION=coin_data
+      - INSERT_EXAMPLE_DATA=True  # Change to False to skip data insertion
+    ports:
+      - "27017:27017"
+    volumes:
+      - indexer_mongo-new-data:/data/db
+      - ./init-mongo:/docker-entrypoint-initdb.d/02-init-mongo.js
+      - ./init-mongo-coins.js:/docker-entrypoint-initdb.d/01-init-mongo-coins.js
+      - ./example_data/tx_metadata_server.json:/data/tx_metadata_server.json
+      - ./example_data/tx_data_server.json:/data/tx_data_server.json
+      - ./example_data/final_results_server.json:/data/final_results_server.json
+
+    # command: --auth --bind_ip_all
+    networks:
+      - aptos-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "3"  # Limit to 25% of a single CPU core
+          memory: "10g"
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  db-test:
+    image: postgres
+    restart: always
+    user: postgres
+    environment:
+      - POSTGRES_PASSWORD=example
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+
+    ports:
+      - "5434:5432"
+    volumes:
+      - indexer_pgdata3:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d
+      # - ./potgres.conf:/var/lib/postgresql/data/postgresql.conf
+    networks:
+      - aptos-network
+      - default
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "3"
+
+    deploy:
+      resources:
+        limits:
+          cpus: "30"  # Limit to 25% of a single CPU core
+          memory: "250g"
+          
+  mysql:
+    image: mysql:8.0
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true
+
+    ports:
+      - "3307:3306"
+    volumes:
+      - indexer_mysql-data:/var/lib/mysql
+      - ./init-mysql:/docker-entrypoint-initdb.d
+    networks:
+      - aptos-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"  # Limit to 25% of a single CPU core
+          memory: "1g"
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  aptos-network:
+    driver: bridge
+    external: true
+
+volumes:
+  indexer_mongo-new-data:
+    external: true
+  indexer_pgdata3:
+    external: true
+  indexer_mysql-data:
+    external: true

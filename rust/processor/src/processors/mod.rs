@@ -132,10 +132,12 @@ pub trait ProcessorTrait: Send + Sync + Debug {
         &self,
         version: u64,
         last_transaction_timestamp: Option<aptos_protos::util::timestamp::Timestamp>,
+        runner_id: i64,
     ) -> anyhow::Result<()> {
         let timestamp = last_transaction_timestamp.map(|t| parse_timestamp(&t, version as i64));
         let status = ProcessorStatus {
             processor: self.name().to_string(),
+            runner_id,
             last_success_version: version as i64,
             last_transaction_timestamp: timestamp,
         };
@@ -143,7 +145,7 @@ pub trait ProcessorTrait: Send + Sync + Debug {
             self.get_pool(),
             diesel::insert_into(processor_status::table)
                 .values(&status)
-                .on_conflict(processor_status::processor)
+                .on_conflict((processor_status::processor, processor_status::runner_id))
                 .do_update()
                 .set((
                     processor_status::last_success_version

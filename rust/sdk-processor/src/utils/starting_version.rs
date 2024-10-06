@@ -20,8 +20,9 @@ pub async fn get_starting_version(
     }
 
     // If it's not set, check if the DB has latest_processed_version set and use that
+    let runner_id = 0;
     let latest_processed_version_from_db =
-        get_latest_processed_version_from_db(indexer_processor_config, conn_pool)
+        get_latest_processed_version_from_db(indexer_processor_config, conn_pool, runner_id)
             .await
             .context("Failed to get latest processed version from DB")?;
     if let Some(latest_processed_version_tracker) = latest_processed_version_from_db {
@@ -37,11 +38,13 @@ pub async fn get_starting_version(
 pub async fn get_latest_processed_version_from_db(
     indexer_processor_config: &IndexerProcessorConfig,
     conn_pool: ArcDbPool,
+    runner_id: i64,
 ) -> Result<Option<u64>> {
     let mut conn = conn_pool.get().await?;
 
     match ProcessorStatusQuery::get_by_processor(
         indexer_processor_config.processor_config.name(),
+        runner_id,
         &mut conn,
     )
     .await?

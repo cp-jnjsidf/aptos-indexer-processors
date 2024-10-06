@@ -110,6 +110,7 @@ impl EventsProcessor {
             self.db_pool.clone(),
             starting_version,
             processor_name.to_string(),
+            0,
         );
 
         // Connect processor steps together

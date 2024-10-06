@@ -60,6 +60,7 @@ pub async fn create_gap_detector_status_tracker_loop(
     mut gap_detector: GapDetector,
     gap_detector_receiver: AsyncReceiver<ProcessingResult>,
     processor: Processor,
+    runner_id: i64,
     gap_detection_batch_size: u64,
 ) {
     let processor_name = processor.name();
@@ -101,6 +102,7 @@ pub async fn create_gap_detector_status_tracker_loop(
                                                 res_last_success_batch
                                                     .last_transaction_timestamp
                                                     .clone(),
+                                                runner_id
                                             )
                                             .await
                                             .unwrap();
@@ -163,6 +165,7 @@ pub async fn create_gap_detector_status_tracker_loop(
                                         .update_last_processed_version(
                                             res.last_success_version,
                                             res.last_transaction_timestamp,
+                                            runner_id
                                         )
                                         .await
                                         .unwrap();

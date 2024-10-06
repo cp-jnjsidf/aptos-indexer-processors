@@ -943,6 +943,9 @@ diesel::table! {
         last_success_version -> Int8,
         last_updated -> Timestamp,
         last_transaction_timestamp -> Nullable<Timestamp>,
+        runner_id -> Int8,
+        start_version -> Int8,
+        upper_bound -> Nullable<Int8>,
     }
 }
 

@@ -28,6 +28,7 @@ where
     last_success_batch: Option<TransactionContext<T>>,
     // Tracks all the versions that have been processed out of order.
     seen_versions: AHashMap<u64, TransactionContext<T>>,
+    runner_id: i64,
 }
 
 impl<T> LatestVersionProcessedTracker<T>
@@ -35,13 +36,14 @@ where
     Self: Sized + Send + 'static,
     T: Send + 'static,
 {
-    pub fn new(conn_pool: ArcDbPool, starting_version: u64, tracker_name: String) -> Self {
+    pub fn new(conn_pool: ArcDbPool, starting_version: u64, tracker_name: String, runner_id: i64) -> Self {
         Self {
             conn_pool,
             tracker_name,
             next_version: starting_version,
             last_success_batch: None,
             seen_versions: AHashMap::new(),
+            runner_id
         }
     }
 
@@ -68,6 +70,7 @@ where
                 processor: self.tracker_name.clone(),
                 last_success_version: last_success_batch.end_version as i64,
                 last_transaction_timestamp: end_timestamp,
+                runner_id: self.runner_id,
             };
             execute_with_better_error(
                 self.conn_pool.clone(),
