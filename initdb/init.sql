@@ -1,9 +1,15 @@
 CREATE TABLE IF NOT EXISTS tx_processed_cache (
     runner_id int4 PRIMARY KEY,
     last_processed_version BIGINT,
+	last_updated timestamp DEFAULT '2022-01-01 00:00:00' NOT NULL,
 	upper_bound BIGINT,
+	bound_timestamp timestamp,
     last_insertion timestamp DEFAULT now() NOT NULL
 );
+
+INSERT INTO public.tx_processed_cache
+(runner_id, last_processed_version, upper_bound, bound_timestamp)
+VALUES (0,0,442143182,'2024-02-08 22:29:55'), (1,442143182,884286365,'2024-05-26 02:24:38'), (2,884286365,1326429548,'2024-08-15 05:38:31'), (3,1326429548,NULL,NULL);
 
 CREATE SCHEMA IF NOT EXISTS custom_proccesor AUTHORIZATION postgres;
 CREATE TABLE IF NOT EXISTS custom_proccesor.custom_event (
