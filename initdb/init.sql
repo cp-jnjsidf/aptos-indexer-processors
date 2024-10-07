@@ -1,6 +1,9 @@
 CREATE TABLE IF NOT EXISTS tx_processed_cache (
-    last_processed_version BIGINT NOT NULL,
-    last_processed_tx_timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL
+    id SERIAL PRIMARY KEY,
+    last_processed_version BIGINT,
+    last_insertion timestamp DEFAULT now() NOT NULL,
+    runner_id int4,
+    upper_bound BIGINT
 );
 
 CREATE SCHEMA IF NOT EXISTS custom_proccesor AUTHORIZATION postgres;
