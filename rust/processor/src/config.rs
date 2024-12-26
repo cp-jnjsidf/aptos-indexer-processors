@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use server_framework::RunnableConfig;
 use std::{collections::HashSet, time::Duration};
 use url::Url;
+use std::env;
 
 pub const QUERY_DEFAULT_RETRIES: u32 = 5;
 pub const QUERY_DEFAULT_RETRY_DELAY_MS: u64 = 500;
@@ -25,7 +26,7 @@ pub struct IndexerGrpcProcessorConfig {
     pub indexer_grpc_data_service_address: Url,
     #[serde(flatten)]
     pub grpc_http2_config: IndexerGrpcHttp2Config,
-    pub auth_token: String,
+    pub auth_token: Option<String>,
     // Version to start indexing from
     pub starting_version: Option<u64>,
     // Version to end indexing at
@@ -81,6 +82,14 @@ impl IndexerGrpcProcessorConfig {
     pub const fn default_grpc_response_item_timeout_in_secs() -> u64 {
         60
     }
+    fn get_runner_id(&self) -> i64 {
+        self.runner_id.unwrap_or_else(|| {
+            env::var("RUNNER_ID")
+                .ok()
+                .and_then(|id_str| id_str.parse::<i64>().ok())
+                .unwrap_or(0)
+        })
+    }
 }
 
 #[async_trait::async_trait]
@@ -88,11 +97,12 @@ impl RunnableConfig for IndexerGrpcProcessorConfig {
     async fn run(&self) -> Result<()> {
         let mut worker = Worker::new(
             self.processor_config.clone(),
-            self.runner_id.unwrap_or(0),
+            self.get_runner_id(),
             self.postgres_connection_string.clone(),
             self.indexer_grpc_data_service_address.clone(),
             self.grpc_http2_config.clone(),
-            self.auth_token.clone(),
+            self.auth_token.clone().or_else(|| env::var("AUTH_TOKEN").ok()).expect(
+                "auth_token must be provided in config or as an environment variable"),
             self.starting_version,
             self.ending_version,
             self.number_concurrent_processing_tasks,
