@@ -1,0 +1,39 @@
+services:  
+  index-processor-rust-temp:
+    # build: ./aptos-indexer-processors/rust
+    image: oct3_balance
+    restart: always
+    volumes:
+      - ../config/config_user_transcations.yaml:/app/config/config.yaml
+    networks:
+      - aptos-network
+      - default
+    ports:
+      - "8089:8089"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "3"
+    
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "0.4g"
+
+    command: ["--config-path", "/app/config/config.yaml"]
+
+
+networks:
+  aptos-network:
+    driver: bridge
+    external: true
+
+volumes:
+  indexer_mongo-new-data:
+    external: true
+  indexer_pgdata3:
+    external: true
+  indexer_mysql-data:
+    external: true

@@ -10,6 +10,7 @@ pub mod fungible_asset_models;
 pub mod ledger_info;
 pub mod object_models;
 pub mod processor_status;
+pub mod write_changes_models;
 pub mod property_map;
 pub mod stake_models;
 pub mod token_models;

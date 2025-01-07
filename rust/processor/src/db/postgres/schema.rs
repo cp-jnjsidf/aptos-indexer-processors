@@ -1279,6 +1279,21 @@ diesel::table! {
         type_ -> Text,
         #[max_length = 66]
         address -> Varchar,
+    }
+}
+
+diesel::table! {
+    write_set_changes_table (transaction_version, index) {
+        transaction_version -> Int8,
+        index -> Int8,
+        #[max_length = 66]
+        hash -> Varchar,
+        #[max_length = 66]
+        address -> Varchar,
+        #[max_length = 66]
+        state_key_hash -> Varchar,
+        resource_type -> Varchar,
+        data -> Jsonb,
         inserted_at -> Timestamp,
     }
 }

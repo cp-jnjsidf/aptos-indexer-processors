@@ -1,0 +1,9 @@
+health_check_port: 8087
+server_config:
+  processor_config:
+    type: write_resource_processor
+  postgres_connection_string: postgresql://postgres:example@db-test:5432/postgres
+  indexer_grpc_data_service_address: https://grpc.mainnet.aptoslabs.com:443
+  enable_verbose_logging: true
+
+
