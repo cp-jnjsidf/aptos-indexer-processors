@@ -1327,7 +1327,33 @@ diesel::table! {
         key -> Jsonb,
         value_type -> Nullable<Varchar>,
         value -> Nullable<Jsonb>,
-        // generic_type_params -> Nullable<Jsonb>,
+        inserted_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    change_modules (transaction_version, change_index) {
+        transaction_version -> Int8,
+        transaction_block_height -> Int8,
+        change_index -> Int8,
+        #[max_length = 66]
+        transaction_hash -> Varchar,
+        transaction_timestamp -> Timestamp,
+        #[max_length = 66]
+        transaction_sender -> Nullable<Varchar>,
+        transaction_entry_function_id_str -> Nullable<Text>,
+        is_transaction_success -> Bool,
+        #[max_length = 66]
+        state_key_hash -> Varchar,
+        is_delete -> Bool,
+        #[max_length = 66]
+        address -> Varchar,
+        name -> Varchar,
+        bytecode -> Nullable<Varchar>,
+        abi -> Nullable<Jsonb>,
+        package_manifest -> Nullable<Varchar>,
+        source_code -> Nullable<Varchar>,
+        is_source_correct -> Nullable<diesel::sql_types::Bool>,
         inserted_at -> Timestamp,
     }
 }
