@@ -1,32 +1,121 @@
+x-indexer: &indexer-base
+  image: oct8
+  restart: always
+  depends_on:
+    db-test:
+      condition: service_healthy
+  volumes:
+    - ./config/config_user_transcations_new.yaml:/app/config/config.yaml
+  networks:
+    - aptos-network
+    - default
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "1m"
+      max-file: "3"
+
+  deploy:
+    resources:
+      limits:
+        cpus: "6"
+        memory: "25g"
+
+  command: ["--config-path", "/app/config/config.yaml"]
+
+x-indexer-changes: &indexer-base-changes
+  build:
+    context: ./rust
+    dockerfile: Dockerfile
+  restart: always
+  depends_on:
+    db-test:
+      condition: service_healthy
+  volumes:
+    - ./config/config_tnx_changes.yaml:/app/config/config.yaml
+
+  networks:
+    - aptos-network
+    - default
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "1m"
+      max-file: "3"
+
+  deploy:
+    resources:
+      limits:
+        cpus: "6"
+        memory: "25g"
+
+  command: ["--config-path", "/app/config/config.yaml"]
+
+x-indexer-events: &indexer-base-events
+  image: oct8
+  restart: always
+  depends_on:
+    db-test:
+      condition: service_healthy
+  volumes:
+    - ./config/config_events.yaml:/app/config/config.yaml
+  networks:
+    - aptos-network
+    - default
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "1m"
+      max-file: "3"
+
+  deploy:
+    resources:
+      limits:
+        cpus: "6"
+        memory: "25g"
+
+  command: ["--config-path", "/app/config/config.yaml"]
+
+
+
+
 services:
+  rust-indexer-changes:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 0
+      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
 
-  index-processor-rust-user-transcations-new:
-    # build: ./aptos-indexer-processors/rust
-    image: oct3_balance
-    restart: always
-    depends_on:
-      db-test:
-        condition: service_healthy
-    volumes:
-      - ./config/config_user_transcations_new.yaml:/app/config/config.yaml
-    networks:
-      - aptos-network
-      - default
-    ports:
-      - "8088:8088"
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "1m"
-        max-file: "3"
-    
-    deploy:
-      resources:
-        limits:
-          cpus: "30"
-          memory: "250g"
+  rust-indexer-events:
+    <<: *indexer-base-events
+    environment:
+      RUNNER_ID: 0
+      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
 
-    command: ["--config-path", "/app/config/config.yaml"]
+  rust-indexer-events-old:
+    <<: *indexer-base-events
+    environment:
+      RUNNER_ID: 1
+      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
+
+
+  # rust-indexer-1:
+  #   <<: *indexer-base
+  #   environment:
+  #     RUNNER_ID: 1
+  #     AUTH_TOKEN: aptoslabs_fv8NiQf6hgS_PrPYYcR7P4ncgXmnLa5XECqF3VNbP4qjd
+
+  rust-indexer-2:
+    <<: *indexer-base
+    environment:
+      RUNNER_ID: 2
+      AUTH_TOKEN: aptoslabs_i33Aq9YZvCM_DPzuSvjuoxT7whQDiZd2nCTZi6C4wbDrU
+
+  rust-indexer-3:
+    <<: *indexer-base
+    environment:
+      RUNNER_ID: 3
+      AUTH_TOKEN: aptoslabs_HW99Hjfx4Rv_146A817vYhp5Zha3RVwZ7x9CycRWLmfHL
 
   index-processor-coins-python:
     build: ../../indexer/web3-security/indexer/python/
@@ -56,7 +145,7 @@ services:
     restart: always
     environment:
       - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=example
+      - MONGO_INITDB_ROOT_PASSWORD=5zd8xjwpzC3OawFaaB2o5l3BlyTvFYTo
       - MONGO_COLLECTION=coin_data
       - INSERT_EXAMPLE_DATA=True  # Change to False to skip data insertion
     ports:
@@ -68,6 +157,7 @@ services:
       - ./example_data/tx_metadata_server.json:/data/tx_metadata_server.json
       - ./example_data/tx_data_server.json:/data/tx_data_server.json
       - ./example_data/final_results_server.json:/data/final_results_server.json
+      - ./mongod.conf:/etc/mongod.conf
 
     # command: --auth --bind_ip_all
     networks:
@@ -80,8 +170,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "3"  # Limit to 25% of a single CPU core
-          memory: "10g"
+          cpus: "30"  # Limit to 25% of a single CPU core
+          memory: "70g"
     healthcheck:
       test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
       interval: 30s
@@ -120,9 +210,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "30"  # Limit to 25% of a single CPU core
+          cpus: "24"  # Limit to 25% of a single CPU core
           memory: "250g"
-          
+
   mysql:
     image: mysql:8.0
     restart: always

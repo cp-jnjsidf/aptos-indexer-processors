@@ -31,7 +31,7 @@ use crate::{
         token_v2_processor::TokenV2Processor,
         transaction_metadata_processor::TransactionMetadataProcessor,
         user_transaction_processor::UserTransactionProcessor,
-        write_resource_processor::WriteResourceProcessor,
+        txn_changes_processor::TxnChangesProcessor,
         DefaultProcessingResult, Processor, ProcessorConfig, ProcessorTrait,
     },
     schema::ledger_infos,
@@ -979,8 +979,8 @@ pub fn build_processor(
         ProcessorConfig::UserTransactionProcessor => Processor::from(
             UserTransactionProcessor::new(db_pool, per_table_chunk_sizes, deprecated_tables),
         ),
-        ProcessorConfig::WriteResourceProcessor => Processor::from(
-            WriteResourceProcessor::new(db_pool, per_table_chunk_sizes)
+        ProcessorConfig::TxnChangesProcessor => Processor::from(
+            TxnChangesProcessor::new(db_pool, per_table_chunk_sizes)
         ),
         ProcessorConfig::ParquetDefaultProcessor(config) => {
             Processor::from(ParquetDefaultProcessor::new(

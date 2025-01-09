@@ -1283,17 +1283,51 @@ diesel::table! {
 }
 
 diesel::table! {
-    write_set_changes_table (transaction_version, index) {
+    change_resources (transaction_version, change_index) {
         transaction_version -> Int8,
-        index -> Int8,
+        transaction_block_height -> Int8,
+        change_index -> Int8,
         #[max_length = 66]
-        hash -> Varchar,
+        transaction_hash -> Varchar,
+        transaction_timestamp -> Timestamp,
         #[max_length = 66]
-        address -> Varchar,
+        transaction_sender -> Nullable<Varchar>,
+        transaction_entry_function_id_str -> Nullable<Text>,
+        is_transaction_success -> Bool,
         #[max_length = 66]
         state_key_hash -> Varchar,
+        is_delete -> Bool,
+        #[max_length = 66]
+        address -> Varchar,
         resource_type -> Varchar,
-        data -> Jsonb,
+        data -> Nullable<Jsonb>,
+        // generic_type_params -> Nullable<Jsonb>,
+        inserted_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    change_table_items (transaction_version, change_index) {
+        transaction_version -> Int8,
+        transaction_block_height -> Int8,
+        change_index -> Int8,
+        #[max_length = 66]
+        transaction_hash -> Varchar,
+        transaction_timestamp -> Timestamp,
+        #[max_length = 66]
+        transaction_sender -> Nullable<Varchar>,
+        transaction_entry_function_id_str -> Nullable<Text>,
+        is_transaction_success -> Bool,
+        #[max_length = 66]
+        state_key_hash -> Varchar,
+        is_delete -> Bool,
+        #[max_length = 66]
+        table_handle -> Varchar,
+        key_type -> Varchar,
+        key -> Jsonb,
+        value_type -> Nullable<Varchar>,
+        value -> Nullable<Jsonb>,
+        // generic_type_params -> Nullable<Jsonb>,
         inserted_at -> Timestamp,
     }
 }

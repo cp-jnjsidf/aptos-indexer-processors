@@ -17,7 +17,7 @@ pub mod stake_processor;
 pub mod token_v2_processor;
 pub mod transaction_metadata_processor;
 pub mod user_transaction_processor;
-pub mod write_resource_processor;
+pub mod txn_changes_processor;
 
 use self::{
     account_transactions_processor::AccountTransactionsProcessor,
@@ -32,7 +32,7 @@ use self::{
     token_v2_processor::{TokenV2Processor, TokenV2ProcessorConfig},
     transaction_metadata_processor::TransactionMetadataProcessor,
     user_transaction_processor::UserTransactionProcessor,
-    write_resource_processor::WriteResourceProcessor,
+    txn_changes_processor::TxnChangesProcessor,
 };
 use crate::{
     db::common::models::processor_status::ProcessorStatus,
@@ -208,7 +208,7 @@ pub enum ProcessorConfig {
     TokenV2Processor(TokenV2ProcessorConfig),
     TransactionMetadataProcessor,
     UserTransactionProcessor,
-    WriteResourceProcessor,
+    TxnChangesProcessor,
     ParquetDefaultProcessor(ParquetDefaultProcessorConfig),
     ParquetFungibleAssetActivitiesProcessor(ParquetFungibleAssetActivitiesProcessorConfig),
     ParquetFungibleAssetProcessor(ParquetFungibleAssetProcessorConfig),
@@ -271,7 +271,7 @@ pub enum Processor {
     TokenV2Processor,
     TransactionMetadataProcessor,
     UserTransactionProcessor,
-    WriteResourceProcessor,
+    TxnChangesProcessor,
     // Parquet processors
     ParquetDefaultProcessor,
     ParquetFungibleAssetActivitiesProcessor,
