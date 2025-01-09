@@ -46,7 +46,37 @@ CREATE TABLE IF NOT EXISTS public.change_table_items (
     CONSTRAINT change_table_items_pkey PRIMARY KEY (transaction_version, change_index),
     CONSTRAINT data_null_when_deleted_table CHECK (
         ((is_delete = TRUE AND value IS NULL) OR
-        (is_delete = FALSE AND value IS NOT NULL))
+        (is_delete = FALSE AND value IS NOT NULL)) AND
+        ((is_delete = TRUE AND value_type IS NULL) OR
+        (is_delete = FALSE AND value_type IS NOT NULL))
+    )
+);
+
+CREATE TABLE IF NOT EXISTS public.change_modules (
+    transaction_version BIGINT NOT NULL,
+    transaction_block_height BIGINT NOT NULL,
+    change_index BIGINT NOT NULL,
+    transaction_hash VARCHAR(66) NOT NULL,
+    transaction_timestamp TIMESTAMP NOT NULL,
+    transaction_sender VARCHAR(66),
+    transaction_entry_function_id_str text,
+    is_transaction_success BOOLEAN NOT NULL,
+    state_key_hash VARCHAR(66) NOT NULL,
+    is_delete BOOLEAN NOT NULL,
+    address VARCHAR(66) NOT NULL,
+    name text NOT NULL,
+    bytecode text,
+    abi JSONB,
+    package_manifest text,
+    source_code text,
+    is_source_correct BOOLEAN,
+    inserted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT change_modules_pkey PRIMARY KEY (transaction_version, change_index),
+    CONSTRAINT data_null_when_deleted_modules CHECK (
+        ((is_delete = TRUE AND bytecode IS NULL) OR
+        (is_delete = FALSE AND bytecode IS NOT NULL)) AND
+        ((is_delete = TRUE AND abi IS NULL) OR
+        (is_delete = FALSE AND abi IS NOT NULL))
     )
 );
 

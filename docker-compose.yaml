@@ -51,6 +51,35 @@ x-indexer-changes: &indexer-base-changes
 
   command: ["--config-path", "/app/config/config.yaml"]
 
+x-indexer-modules-changes: &indexer-base-modules-changes
+  build:
+    context: ./rust
+    dockerfile: Dockerfile
+  restart: always
+  depends_on:
+    db-test:
+      condition: service_healthy
+  volumes:
+    - ./config/config_tnx_changes_modules.yaml:/app/config/config.yaml
+
+  networks:
+    - aptos-network
+    - default
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "1m"
+      max-file: "3"
+
+  deploy:
+    resources:
+      limits:
+        cpus: "6"
+        memory: "25g"
+
+  command: ["--config-path", "/app/config/config.yaml"]
+
+
 x-indexer-events: &indexer-base-events
   image: oct8
   restart: always
@@ -85,6 +114,13 @@ services:
     environment:
       RUNNER_ID: 0
       AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
+
+  rust-indexer-modules-changes:
+    <<: *indexer-base-modules-changes
+    environment:
+      RUNNER_ID: 0
+      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
+
 
   rust-indexer-events:
     <<: *indexer-base-events

@@ -32,6 +32,7 @@ use crate::{
         transaction_metadata_processor::TransactionMetadataProcessor,
         user_transaction_processor::UserTransactionProcessor,
         txn_changes_processor::TxnChangesProcessor,
+        txn_changes_modules_processor::TxnChangesModulesProcessor,
         DefaultProcessingResult, Processor, ProcessorConfig, ProcessorTrait,
     },
     schema::ledger_infos,
@@ -981,6 +982,9 @@ pub fn build_processor(
         ),
         ProcessorConfig::TxnChangesProcessor => Processor::from(
             TxnChangesProcessor::new(db_pool, per_table_chunk_sizes)
+        ),
+        ProcessorConfig::TxnChangesModulesProcessor => Processor::from(
+            TxnChangesModulesProcessor::new(db_pool, per_table_chunk_sizes)
         ),
         ProcessorConfig::ParquetDefaultProcessor(config) => {
             Processor::from(ParquetDefaultProcessor::new(
