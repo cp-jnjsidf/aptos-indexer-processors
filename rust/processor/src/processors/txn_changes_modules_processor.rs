@@ -1,6 +1,6 @@
 use super::{DefaultProcessingResult, ProcessorName, ProcessorTrait};
 use crate::{
-    db::common::models::txn_changes_models::change_modules_utils::ChangeModulesModel,
+    db::common::models::txn_changes_models::change_modules_utils::{ChangeModulesModel, PackageRegistryResourceModel, decompress_gzip, ModuleInfoModel},
     gap_detectors::ProcessingResult,
     utils::database::{execute_in_chunks, get_config_table_chunk_size, ArcDbPool},
     schema
@@ -21,7 +21,6 @@ use crate::utils::util::{standardize_address, get_entry_function_from_user_reque
 use aptos_protos::transaction::v1::write_set_change::Change;
 use aptos_protos::transaction::v1::transaction::TxnData;
 use chrono::NaiveDateTime;
-
 
 
 pub struct TxnChangesModulesProcessor {
@@ -116,6 +115,7 @@ impl ProcessorTrait for TxnChangesModulesProcessor {
 
         let mut change_modules = vec![];
         for txn in &transactions {
+            let mut package_map: AHashMap<(String, String), ModuleInfoModel> = AHashMap::new();
             let transaction_version = txn.version as i64;
             let block_height = txn.block_height as i64;
             let transaction_info = match txn.info.as_ref() {
@@ -155,38 +155,143 @@ impl ProcessorTrait for TxnChangesModulesProcessor {
 
             let is_transaction_success = transaction_info.success;
             for (change_index, wsc) in transaction_info.changes.iter().enumerate() {
+                    if let Some(change) = wsc.change.as_ref() {
+                        if let Change::WriteResource(resource) = change {
+                            let resource_type = resource.type_str.clone();
+                            let resouce_address = standardize_address(&resource.address);
+                            if resource_type == "0x1::code::PackageRegistry" {
+                                let resource_data: PackageRegistryResourceModel = match serde_json::from_str(&resource.data) {
+                                    Ok(data) => data,
+                                    Err(e) => {
+                                        error!(
+                                            "Failed to deserialize resource_data: transaction_version: {}, change_index: {}, error: {}",
+                                            transaction_version, change_index, e
+                                        );
+                                        continue;
+                                    }
+                                };
+                                for package in resource_data.packages.iter() {
+                                    let package_name = package.name.clone();
+                                    let package_manifest_raw = package.manifest.clone();
+                                    let package_manifest = match decompress_gzip(&package_manifest_raw) {
+                                        Ok(data) => data,
+                                        Err(e) => {
+                                            error!(
+                                                "Failed to decompress package manifest: transaction_version: {}, change_index: {}, package_name: {}, source_code_raw: {}, error: {}",
+                                                transaction_version, change_index, package_name, package_manifest_raw,  e
+                                            );
+                                            continue;
+                                        }
+                                    };
+
+                                    for module in package.modules.iter() {
+                                        let module_name = module.name.clone();
+                                        let source_code_raw = module.source.clone();
+                                        let source_map = module.source_map.clone();
+
+                                        let source_code = if source_map == "0x" {
+                                            match decompress_gzip(source_code_raw.as_ref()) {
+                                                Ok(data) => data,
+                                                Err(e) => {
+                                                    error!(
+                                                        "Failed to decompress source code: transaction_version: {}, change_index: {}, module_name: {}, source_code_raw: {}, error: {}",
+                                                        transaction_version, change_index, module_name, source_code_raw, e
+                                                    );
+                                                    continue;
+                                                }
+                                            }
+                                        } else {
+                                            source_code_raw
+                                        };
+
+                                        let key = (resouce_address.clone(), package_name.clone());
+                                        let package_info = ModuleInfoModel {
+                                            package_name: package_name.clone(),
+                                            manifest: package_manifest.clone(),
+                                            module_name: module_name,
+                                            source_code: source_code,
+                                            source_map: source_map
+                                        };
+                                        package_map.insert(key, package_info);
+
+                                    }
+                                }
+
+                            }
+                        }
+
+                    }
+                }
+            for (change_index, wsc) in transaction_info.changes.iter().enumerate() {
                 if let Some(change) = wsc.change.as_ref() {
                     match change{
                         // Handle WriteModule
-                        // Change::WriteModule(module_obj) =>
-                        // {
-                        //     let is_delete = false;
+                        Change::WriteModule(module_obj) =>
+                        {
+                            let is_delete = false;
+
+                            let state_key_hash = standardize_address(
+                                hex::encode(module_obj.state_key_hash.as_slice()).as_str(),
+                            );
+                            let address = standardize_address(&module_obj.address);
+                            let module_obj_data = if let Some(data) = module_obj.data.as_ref(){data} else {
+                                error!(
+                                    "Skipping module change, the module data is None for delete: transaction_version: {}, change_index: {}",
+                                    transaction_version, change_index
+                                );
+                                continue;
+                            };
+                            let abi_obj = if let Some(abi) = module_obj_data.abi.as_ref(){abi} else {
+                                error!(
+                                    "Skipping module change, the module abi is None for delete: transaction_version: {}, change_index: {}",
+                                    transaction_version, change_index
+                                );
+                                continue;
+                            };
+                            // Serialize to JSON string
+                            let abi_json_str = match serde_json::to_value(abi_obj) {
+                                Ok(json_str) => Some(json_str),
+                                Err(e) => {
+                                    error!(
+                                        "Failed to serialize ABI to JSON: transaction_version: {}, change_index: {}, error: {}",
+                                        transaction_version, change_index, e
+                                    );
+                                    continue;
+                                }
+                            };
                             
-                        //     let state_key_hash = standardize_address(
-                        //         hex::encode(module_obj.state_key_hash.as_slice()).as_str(),
-                        //     );
-                        //     let module_obj_address = standardize_address(&module_obj.address);
-                        //     let resource_parsed = ChangeModulesModel::from_transaction(
-                        //         transaction_version,
-                        //         block_height,
-                        //         change_index as i64,
-                        //         txn_hash.as_str(),
-                        //         txn_timestamp,
-                        //         &sender,
-                        //         &entry_function_id_str,
-                        //         is_transaction_success,
-                        //         state_key_hash.as_str(),
-                        //         is_delete,
-                        //         address.as_str(),
-                        //         name.as_str(),
-                        //         &bytecode,
-                        //         &abi,
-                        //         &package_manifest,
-                        //         &source_code,
-                        //         &is_source_correct   
-                        //     );
-                        //     change_modules.push(resource_parsed);   
-                        // }
+
+                            let name = abi_obj.name.clone();
+                            let bytecode = Some(format!("0x{}", hex::encode(&module_obj_data.bytecode.clone())));
+
+                            let is_source_correct = None;
+
+                            let (package_manifest, source_code) = package_map
+                                .get(&(address.clone(), name.clone()))
+                                .map(|package_info| (Some(package_info.manifest.clone()), Some(package_info.source_code.clone())))
+                                .unwrap_or((None, None));
+
+                            let resource_parsed = ChangeModulesModel::from_transaction(
+                                transaction_version,
+                                block_height,
+                                change_index as i64,
+                                txn_hash.as_str(),
+                                txn_timestamp,
+                                &sender,
+                                &entry_function_id_str,
+                                is_transaction_success,
+                                state_key_hash.as_str(),
+                                is_delete,
+                                address.as_str(),
+                                name.as_str(),
+                                &bytecode,
+                                &abi_json_str,
+                                &package_manifest,
+                                &source_code,
+                                &is_source_correct
+                            );
+                            change_modules.push(resource_parsed);
+                        }
                         // Handle DeleteModule
                         Change::DeleteModule(module_obj) =>
                         {
@@ -194,14 +299,13 @@ impl ProcessorTrait for TxnChangesModulesProcessor {
                             let state_key_hash = standardize_address(
                                 hex::encode(module_obj.state_key_hash.as_slice()).as_str(),
                             );
-                            if module_obj.module.is_none(){
+                            let module_obj_data = if let Some(data) = module_obj.module.as_ref(){data} else {
                                 error!(
-                                    "Skipping module change, the module is None for delete: transaction_version: {}, change_index: {}",
+                                    "Skipping module change, the module data is None for delete: transaction_version: {}, change_index: {}",
                                     transaction_version, change_index
                                 );
                                 continue;
-                            }
-                            let module_obj_data  = module_obj.module.as_ref().unwrap();
+                            };
                             let name = module_obj_data.name.clone();
                             let address = standardize_address(&module_obj.address);
                             // if module_obj.data.is_none(){
@@ -214,8 +318,7 @@ impl ProcessorTrait for TxnChangesModulesProcessor {
                             // let module_obj_data  = module_obj.data.as_ref().unwrap();
                             // let abi_obj  = module_obj_data.abi.as_ref().unwrap();
                             // let name = abi_obj.name.clone();
-                            // let address = standardize_address(&module_obj.address);
-                            let bytecode = None;
+                            let bytecode: Option<String> = None;
                             let package_manifest = None;
                             let source_code = None;
                             let is_source_correct = None;
@@ -245,8 +348,7 @@ impl ProcessorTrait for TxnChangesModulesProcessor {
                     }
                 }
             }
-
-    }
+        }
 
         let processing_duration_in_secs = processing_start.elapsed().as_secs_f64();
         let db_insertion_start = std::time::Instant::now();

@@ -3338,6 +3338,7 @@ dependencies = [
  "diesel_migrations",
  "enum_dispatch",
  "field_count",
+ "flate2",
  "futures",
  "futures-util",
  "google-cloud-googleapis",
