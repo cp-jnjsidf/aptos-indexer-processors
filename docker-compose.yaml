@@ -1,9 +1,6 @@
 x-indexer: &indexer-base
   image: oct8
   restart: always
-  depends_on:
-    db-test:
-      condition: service_healthy
   volumes:
     - ./config/config_user_transcations_new.yaml:/app/config/config.yaml
   networks:
@@ -28,9 +25,6 @@ x-indexer-changes: &indexer-base-changes
     context: ./rust
     dockerfile: Dockerfile
   restart: always
-  depends_on:
-    db-test:
-      condition: service_healthy
   volumes:
     - ./config/config_tnx_changes.yaml:/app/config/config.yaml
 
@@ -51,14 +45,37 @@ x-indexer-changes: &indexer-base-changes
 
   command: ["--config-path", "/app/config/config.yaml"]
 
+x-indexer-changes-diffs: &indexer-base-changes-diffs
+  build:
+    context: ./rust
+    dockerfile: Dockerfile
+  restart: always
+  volumes:
+    - ./config/config_tnx_changes_diffs.yaml:/app/config/config.yaml
+
+  networks:
+    - aptos-network
+    - default
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "1m"
+      max-file: "3"
+
+  deploy:
+    resources:
+      limits:
+        cpus: "6"
+        memory: "25g"
+
+  command: ["--config-path", "/app/config/config.yaml"]
+
+
 x-indexer-modules-changes: &indexer-base-modules-changes
   build:
     context: ./rust
     dockerfile: Dockerfile
   restart: always
-  depends_on:
-    db-test:
-      condition: service_healthy
   volumes:
     - ./config/config_tnx_changes_modules.yaml:/app/config/config.yaml
 
@@ -79,13 +96,34 @@ x-indexer-modules-changes: &indexer-base-modules-changes
 
   command: ["--config-path", "/app/config/config.yaml"]
 
+x-indexer-ans: &indexer-base-ans
+  build:
+    context: ./rust
+    dockerfile: Dockerfile
+  restart: always
+  volumes:
+    - ./config/config_ans.yaml:/app/config/config.yaml
+    - ./ssl_cert:/app/ssl_cert
+
+  network_mode: "host"
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "1m"
+      max-file: "3"
+
+  deploy:
+    resources:
+      limits:
+        cpus: "6"
+        memory: "25g"
+
+  command: ["--config-path", "/app/config/config.yaml"]
+
 
 x-indexer-events: &indexer-base-events
   image: oct8
   restart: always
-  depends_on:
-    db-test:
-      condition: service_healthy
   volumes:
     - ./config/config_events.yaml:/app/config/config.yaml
   networks:
@@ -115,6 +153,13 @@ services:
       RUNNER_ID: 0
       AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
 
+  rust-indexer-changes-diffs:
+    <<: *indexer-base-changes-diffs
+    environment:
+      RUNNER_ID: 0
+      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
+
+
   rust-indexer-modules-changes:
     <<: *indexer-base-modules-changes
     environment:
@@ -124,6 +169,12 @@ services:
 
   rust-indexer-events:
     <<: *indexer-base-events
+    environment:
+      RUNNER_ID: 0
+      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
+
+  rust-indexer-ans:
+    <<: *indexer-base-ans
     environment:
       RUNNER_ID: 0
       AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
@@ -157,11 +208,8 @@ services:
     build: ../../indexer/web3-security/indexer/python/
     restart: always
     environment:
-      DB_CONNECTION_URI: postgresql://postgres:postgres@db-test:5432/postgres
+      DB_CONNECTION_URI: postgresql://dbadmin:CvGbESSqy428OEza96VPVkO9FFs2F8@postgres-public.cyt0fqqed8cg.eu-west-1.rds.amazonaws.com:5432/postgres
       AUTH_TOKEN: ${AUTH_TOKEN}
-    depends_on:
-      db-test:
-        condition: service_healthy
     volumes:
       - ../../indexer/web3-security/indexer/config/config_custom_processor.yaml:/app/config/config.yaml
     networks:
@@ -190,9 +238,9 @@ services:
       - indexer_mongo-new-data:/data/db
       - ./init-mongo:/docker-entrypoint-initdb.d/02-init-mongo.js
       - ./init-mongo-coins.js:/docker-entrypoint-initdb.d/01-init-mongo-coins.js
-      - ./example_data/tx_metadata_server.json:/data/tx_metadata_server.json
-      - ./example_data/tx_data_server.json:/data/tx_data_server.json
-      - ./example_data/final_results_server.json:/data/final_results_server.json
+      - ./CvGbESSqy428OEza96VPVkO9FFs2F8_data/tx_metadata_server.json:/data/tx_metadata_server.json
+      - ./CvGbESSqy428OEza96VPVkO9FFs2F8_data/tx_data_server.json:/data/tx_data_server.json
+      - ./CvGbESSqy428OEza96VPVkO9FFs2F8_data/final_results_server.json:/data/final_results_server.json
       - ./mongod.conf:/etc/mongod.conf
 
     # command: --auth --bind_ip_all
@@ -220,7 +268,7 @@ services:
     restart: always
     user: postgres
     environment:
-      - POSTGRES_PASSWORD=example
+      - POSTGRES_PASSWORD=CvGbESSqy428OEza96VPVkO9FFs2F8
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 1s

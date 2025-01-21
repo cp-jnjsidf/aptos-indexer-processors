@@ -18,6 +18,7 @@ pub mod token_v2_processor;
 pub mod transaction_metadata_processor;
 pub mod user_transaction_processor;
 pub mod txn_changes_processor;
+pub mod txn_changes_processor_diffs;
 pub mod txn_changes_modules_processor;
 
 use self::{
@@ -34,6 +35,7 @@ use self::{
     transaction_metadata_processor::TransactionMetadataProcessor,
     user_transaction_processor::UserTransactionProcessor,
     txn_changes_processor::TxnChangesProcessor,
+    txn_changes_processor_diffs::TxnChangesProcessorDiffs,
     txn_changes_modules_processor::TxnChangesModulesProcessor,
 };
 use crate::{
@@ -211,6 +213,7 @@ pub enum ProcessorConfig {
     TransactionMetadataProcessor,
     UserTransactionProcessor,
     TxnChangesProcessor,
+    TxnChangesProcessorDiffs,
     TxnChangesModulesProcessor,
     ParquetDefaultProcessor(ParquetDefaultProcessorConfig),
     ParquetFungibleAssetActivitiesProcessor(ParquetFungibleAssetActivitiesProcessorConfig),
@@ -275,6 +278,7 @@ pub enum Processor {
     TransactionMetadataProcessor,
     UserTransactionProcessor,
     TxnChangesProcessor,
+    TxnChangesProcessorDiffs,
     TxnChangesModulesProcessor,
     // Parquet processors
     ParquetDefaultProcessor,

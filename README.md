@@ -19,7 +19,7 @@ This guide will get you started with creating an Aptos indexer with custom parsi
   - `db_connection_uri`: The DB connection used to write the processed data
   - (optional) `starting-version`
     - If `starting-version` is set, the processor will begin indexing from transaction version = `starting_version`.
-    - To auto restart the client in case of an error, you can cache the latest processed transaction version. In the example, the processor restarts from cached transaction version that is stored in a table, and if neither `starting_version` nor cached version are set, the processor defaults starting version to 0.
+    - To auto restart the client in case of an error, you can cache the latest processed transaction version. In the CvGbESSqy428OEza96VPVkO9FFs2F8, the processor restarts from cached transaction version that is stored in a table, and if neither `starting_version` nor cached version are set, the processor defaults starting version to 0.
 
 ## Response
 

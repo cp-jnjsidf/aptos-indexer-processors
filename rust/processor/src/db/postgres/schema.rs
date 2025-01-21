@@ -1301,6 +1301,10 @@ diesel::table! {
         address -> Varchar,
         resource_type -> Varchar,
         data -> Nullable<Jsonb>,
+        prev_transaction_version -> Nullable<Int8>,
+        prev_change_index -> Nullable<Int8>,
+        prev_is_delete -> Nullable<diesel::sql_types::Bool>,
+        prev_data -> Nullable<Jsonb>,
         // generic_type_params -> Nullable<Jsonb>,
         inserted_at -> Timestamp,
     }
@@ -1327,6 +1331,10 @@ diesel::table! {
         key -> Jsonb,
         value_type -> Nullable<Varchar>,
         value -> Nullable<Jsonb>,
+        prev_transaction_version -> Nullable<Int8>,
+        prev_change_index -> Nullable<Int8>,
+        prev_is_delete -> Nullable<diesel::sql_types::Bool>,
+        prev_value -> Nullable<Jsonb>,
         inserted_at -> Timestamp,
     }
 }

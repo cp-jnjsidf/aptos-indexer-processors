@@ -338,7 +338,7 @@ impl ProcessorTrait for TxnChangesProcessor {
                             let key_data = parse_change_data(table_item_data.key.as_str());
                             if key_data.is_none() {
                                 error!(
-                                    "Skipping table item due to parsing error with the key_data of a write action: transaction_version: {}, change_index: {}, raw data: {}",
+                                    "Skipping table item due to parsing error with the key_data of a delete action: transaction_version: {}, change_index: {}, raw data: {}",
                                     transaction_version, change_index, table_item_data.key.as_str()
                                 );
                                 continue;

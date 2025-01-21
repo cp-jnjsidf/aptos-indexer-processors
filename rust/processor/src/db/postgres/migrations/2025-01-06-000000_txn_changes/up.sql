@@ -16,6 +16,10 @@ CREATE TABLE IF NOT EXISTS public.change_resources (
     address VARCHAR(66) NOT NULL,
     resource_type VARCHAR NOT NULL,
     data JSONB,
+    prev_transaction_version BIGINT,
+    prev_change_index BIGINT,
+    prev_is_delete BOOLEAN,
+    prev_data JSONB,
     inserted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT change_resources_pkey PRIMARY KEY (transaction_version, change_index),
     CONSTRAINT data_null_when_deleted CHECK (
@@ -42,6 +46,10 @@ CREATE TABLE IF NOT EXISTS public.change_table_items (
     key JSONB NOT NULL,
     value_type text,
     value JSONB,
+    prev_transaction_version BIGINT,
+    prev_change_index BIGINT,
+    prev_is_delete BOOLEAN,
+    prev_value JSONB,
     inserted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT change_table_items_pkey PRIMARY KEY (transaction_version, change_index),
     CONSTRAINT data_null_when_deleted_table CHECK (
@@ -80,14 +88,6 @@ CREATE TABLE IF NOT EXISTS public.change_modules (
     )
 );
 
-TABLESPACE pg_default;
-
-ALTER TABLE IF EXISTS public.change_resources
-    OWNER to postgres;
-
-ALTER TABLE IF EXISTS public.change_table_items
-    OWNER to postgres;
-
 -- Index for ascending sort by transaction_version
 CREATE INDEX IF NOT EXISTS idx_resource_changes_address_txn_asc
 ON public.change_resources (address, transaction_version ASC);
@@ -97,9 +97,34 @@ CREATE INDEX IF NOT EXISTS idx_resource_changes_address_txn_desc
 ON public.change_resources (address, transaction_version DESC);
 
 -- Index for ascending sort by transaction_version
-CREATE INDEX IF NOT EXISTS idx_table_item_changes_address_txn_asc
-ON public.change_table_items (address, transaction_version ASC);
+CREATE INDEX IF NOT EXISTS idx_table_item_changes_table_handle_txn_asc
+ON public.change_table_items (table_handle, transaction_version ASC);
 
 -- Index for descending sort by transaction_version
-CREATE INDEX IF NOT EXISTS idx_table_item_changes_address_txn_desc
-ON public.change_table_items (address, transaction_version DESC);
+CREATE INDEX IF NOT EXISTS idx_table_item_changes_table_handle_txn_desc
+ON public.change_table_items (table_handle, transaction_version DESC);
+
+CREATE INDEX IF NOT EXISTS idx_table_handle_timestamp
+    ON public.change_table_items (table_handle ASC, transaction_timestamp DESC);
+
+
+-- Index for ascending sort by transaction_version
+CREATE INDEX IF NOT EXISTS idx_modules_changes_address_txn_asc
+ON public.change_modules (address, transaction_version ASC);
+
+-- Index for descending sort by transaction_version
+CREATE INDEX IF NOT EXISTS idx_modules_changes_address_txn_desc
+ON public.change_modules (address, transaction_version DESC);
+
+CREATE INDEX IF NOT EXISTS idx_sender_function_version
+    ON public.change_table_items (transaction_sender, transaction_entry_function_id_str, transaction_version);
+
+CREATE INDEX IF NOT EXISTS idx_table_item_changes_composite
+    ON public.change_table_items (table_handle, key, transaction_version DESC);
+
+CREATE INDEX IF NOT EXISTS idx_sender_function_version_resources
+    ON public.change_resources (transaction_sender, transaction_entry_function_id_str, transaction_version);
+
+CREATE INDEX IF NOT EXISTS idx_address_resource_version
+    ON public.change_resources (address, resource_type, transaction_version DESC);
+

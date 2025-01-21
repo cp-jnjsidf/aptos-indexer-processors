@@ -32,6 +32,7 @@ use crate::{
         transaction_metadata_processor::TransactionMetadataProcessor,
         user_transaction_processor::UserTransactionProcessor,
         txn_changes_processor::TxnChangesProcessor,
+        txn_changes_processor_diffs::TxnChangesProcessorDiffs,
         txn_changes_modules_processor::TxnChangesModulesProcessor,
         DefaultProcessingResult, Processor, ProcessorConfig, ProcessorTrait,
     },
@@ -754,7 +755,7 @@ impl Worker {
     /// Gets the start version for the processor. If not found, start from 0.
     pub async fn get_current_and_bound_version(&self) -> anyhow::Result<Option<(u64, Option<u64>)>> {
         let mut conn = self.db_pool.get().await?;
-
+        tracing::debug!("Getting current and bound version");
         match ProcessorStatusQuery::get_by_processor(self.processor_config.name(), self.runner_id, &mut conn)
             .await?
         {
@@ -982,6 +983,9 @@ pub fn build_processor(
         ),
         ProcessorConfig::TxnChangesProcessor => Processor::from(
             TxnChangesProcessor::new(db_pool, per_table_chunk_sizes)
+        ),
+        ProcessorConfig::TxnChangesProcessorDiffs => Processor::from(
+            TxnChangesProcessorDiffs::new(db_pool, per_table_chunk_sizes)
         ),
         ProcessorConfig::TxnChangesModulesProcessor => Processor::from(
             TxnChangesModulesProcessor::new(db_pool, per_table_chunk_sizes)
