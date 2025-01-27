@@ -1,7 +1,7 @@
 use super::{DefaultProcessingResult, ProcessorName, ProcessorTrait};
 use crate::{
-    db::common::models::txn_changes_models::change_resource_utils::{ChangeResourceDiffModel, ChangeResourceModel, ChangeResourceOldDataQueryModel},
-    db::common::models::txn_changes_models::change_table_item_utils::{ChangeTableItemDiffModel, ChangeTableItemModel, ChangeTableItemOldDataQueryModel},
+    db::common::models::txn_changes_models::change_resource_utils::{ChangeResourceDiffModel, ChangeResourceModel},
+    db::common::models::txn_changes_models::change_table_item_utils::{ChangeTableItemDiffModel, ChangeTableItemModel},
     gap_detectors::ProcessingResult,
     utils::database::{execute_in_chunks, get_config_table_chunk_size, ArcDbPool},
     schema
@@ -12,7 +12,7 @@ use aptos_protos::transaction::v1::Transaction;
 use async_trait::async_trait;
 use diesel::{
     pg::Pg,
-    query_builder::QueryFragment, pg::upsert::excluded,
+    query_builder::QueryFragment,
 };
 use diesel_async::RunQueryDsl;
 use std::fmt::Debug;
@@ -57,8 +57,8 @@ async fn insert_to_db(
     name: &'static str,
     start_version: u64,
     end_version: u64,
-    change_resources_diffs:  &[ChangeResourceDiffModel],
-    change_table_items_diffs: &[ChangeTableItemDiffModel],
+    change_resources:  &[ChangeResourceModel],
+    change_table_items: &[ChangeTableItemModel],
 
     per_table_chunk_sizes: &AHashMap<String, usize>,
 ) -> Result<(), diesel::result::Error> {
@@ -72,7 +72,7 @@ async fn insert_to_db(
     execute_in_chunks(
         conn.clone(),
         insert_change_resources_diff_query,
-        change_resources_diffs,
+        change_resources,
         get_config_table_chunk_size::<ChangeResourceModel>("change_resources", per_table_chunk_sizes),
     )
     .await?;
@@ -80,7 +80,7 @@ async fn insert_to_db(
     execute_in_chunks(
         conn,
         insert_table_items_diffs_query,
-        change_table_items_diffs,
+        change_table_items,
         get_config_table_chunk_size::<ChangeTableItemModel>("change_table_items", per_table_chunk_sizes),
     )
     .await?;
@@ -88,78 +88,56 @@ async fn insert_to_db(
 }
 
 fn insert_change_resources_diff_query(
-    diffs: Vec<ChangeResourceDiffModel>,
+    changes: Vec<ChangeResourceModel>,
 ) -> (
     impl QueryFragment<Pg> + diesel::query_builder::QueryId + Send,
     Option<&'static str>,
 ) {
     use schema::change_resources::dsl::*;
     use diesel::prelude::*;
-    let full_diffs: Vec<ChangeResourceModel> = diffs.into_iter()
-        .map(ChangeResourceDiffModel::into_change_resource)
-        .collect();
+    use diesel::dsl::sql;
     (
         diesel::insert_into(change_resources)
-            .values(full_diffs) // Insert all the diffs
+            .values(changes) // Insert all the diffs
             .on_conflict((transaction_version, change_index)) // Conflict key
             .do_update()
             .set((
-                prev_transaction_version.eq(excluded(prev_transaction_version)),
-                prev_change_index.eq(excluded(prev_change_index)),
-                prev_is_delete.eq(excluded(prev_is_delete)),
-                prev_data.eq(excluded(prev_data)),
-                transaction_block_height.eq(transaction_block_height),
-                transaction_hash.eq(transaction_hash),
-                transaction_timestamp.eq(transaction_timestamp),
-                transaction_sender.eq(transaction_sender),
-                transaction_entry_function_id_str.eq(transaction_entry_function_id_str),
-                is_transaction_success.eq(is_transaction_success),
-                state_key_hash.eq(state_key_hash),
-                is_delete.eq(is_delete),
-                address.eq(address),
-                resource_type.eq(resource_type),
-                data.eq(data),
-                inserted_at.eq(inserted_at),
+                prev_transaction_version.eq(sql("COALESCE(EXCLUDED.prev_transaction_version, change_resources.prev_transaction_version)")),
+                prev_change_index.eq(sql("COALESCE(EXCLUDED.prev_change_index, change_resources.prev_change_index)")),
+                prev_is_delete.eq(sql("COALESCE(EXCLUDED.prev_is_delete, change_resources.prev_is_delete)")),
+                prev_data.eq(sql("COALESCE(EXCLUDED.prev_data, change_resources.prev_data)")),
+                next_transaction_version.eq(sql("COALESCE(EXCLUDED.next_transaction_version, change_resources.next_transaction_version)")),
+                next_change_index.eq(sql("COALESCE(EXCLUDED.next_change_index, change_resources.next_change_index)")),
+                next_is_delete.eq(sql("COALESCE(EXCLUDED.next_is_delete, change_resources.next_is_delete)")),
+                next_data.eq(sql("COALESCE(EXCLUDED.next_data, change_resources.next_data)")),
             )),
         None,
     )
 }
 
 fn insert_table_items_diffs_query(
-    diffs: Vec<ChangeTableItemDiffModel>,
+    changes: Vec<ChangeTableItemModel>,
 ) -> (
     impl QueryFragment<Pg> + diesel::query_builder::QueryId + Send,
     Option<&'static str>,
 ) {
     use schema::change_table_items::dsl::*;
     use diesel::prelude::*;
-    let full_diffs: Vec<ChangeTableItemModel> = diffs.into_iter()
-    .map(ChangeTableItemDiffModel::into_change_table_item)
-    .collect();
+    use diesel::dsl::sql;
     (
         diesel::insert_into(change_table_items)
-            .values(full_diffs) // Insert all the diffs
+            .values(changes) // Insert all the diffs
             .on_conflict((transaction_version, change_index)) // Conflict key
             .do_update()
             .set((
-                prev_transaction_version.eq(excluded(prev_transaction_version)),
-                prev_change_index.eq(excluded(prev_change_index)),
-                prev_is_delete.eq(excluded(prev_is_delete)),
-                prev_value.eq(excluded(prev_value)),
-                transaction_block_height.eq(transaction_block_height),
-                transaction_hash.eq(transaction_hash),
-                transaction_timestamp.eq(transaction_timestamp),
-                transaction_sender.eq(transaction_sender),
-                transaction_entry_function_id_str.eq(transaction_entry_function_id_str),
-                is_transaction_success.eq(is_transaction_success),
-                state_key_hash.eq(state_key_hash),
-                is_delete.eq(is_delete),
-                table_handle.eq(table_handle),
-                key_type.eq(key_type),
-                key.eq(key),
-                value_type.eq(value_type),
-                value.eq(value),
-                inserted_at.eq(inserted_at),
+                prev_transaction_version.eq(sql("COALESCE(EXCLUDED.prev_transaction_version, change_table_items.prev_transaction_version)")),
+                prev_change_index.eq(sql("COALESCE(EXCLUDED.prev_change_index, change_table_items.prev_change_index)")),
+                prev_is_delete.eq(sql("COALESCE(EXCLUDED.prev_is_delete, change_table_items.prev_is_delete)")),
+                prev_value.eq(sql("COALESCE(EXCLUDED.prev_value, change_table_items.prev_value)")),
+                next_transaction_version.eq(sql("COALESCE(EXCLUDED.next_transaction_version, change_table_items.next_transaction_version)")),
+                next_change_index.eq(sql("COALESCE(EXCLUDED.next_change_index, change_table_items.next_change_index)")),
+                next_is_delete.eq(sql("COALESCE(EXCLUDED.next_is_delete, change_table_items.next_is_delete)")),
+                next_value.eq(sql("COALESCE(EXCLUDED.next_value, change_table_items.next_value)")),
             )),
         None,
     )
@@ -180,7 +158,7 @@ where
     U: QueryableByName<Pg> + Send + Sync + 'static + Clone,
     T: Sync + Send + Clone + 'static,
     F: Fn(&[T]) -> V + Send + Sync + 'static + Clone,
-    V: QueryFragment<Pg> + QueryId + diesel_async::methods::LoadQuery<'static, AsyncPgConnection, U> + Send + 'static,
+    V: QueryFragment<Pg> + QueryId + diesel_async::methods::LoadQuery<'static, AsyncPgConnection, U> + std::fmt::Debug + Send + Clone + 'static,
 {
     // Split items into chunks
     let chunks: Vec<_> = items.chunks(chunk_size).map(|chunk| chunk.to_vec()).collect();
@@ -203,12 +181,13 @@ where
 
             // Build the query
             let query = build_query(&chunk);
+            let query_clone = query.clone();
 
             // Attempt to execute the query
             match query.get_results::<U>(&mut conn).await {
                 Ok(results) => results,
                 Err(e) => {
-                    tracing::warn!("Failed to execute query: {:?}", e);
+                    tracing::warn!("Failed to execute query: {:?} , Error : {:?}", query_clone, e);
                     Vec::new() // Return an empty vector on query execution error
                 }
             }
@@ -229,11 +208,11 @@ pub async fn get_prev_resources_in_batch(
     conn: ArcDbPool,
     items: Vec<(String, String, i64)>, // address, resource_type, max_version
     per_table_chunk_sizes: &AHashMap<String, usize>
-) -> Result<AHashMap<(String, String, i64), ChangeResourceOldDataQueryModel>, diesel::result::Error> {
+) -> Result<AHashMap<(String, String, i64), ChangeResourceDiffModel>, diesel::result::Error> {
     let mut result_map = AHashMap::new();
 
     // Use `execute_in_chunks_with_values` to split the items into chunks and execute the query for each chunk
-    let results: Vec<ChangeResourceOldDataQueryModel> = execute_in_chunks_with_values(
+    let results: Vec<ChangeResourceDiffModel> = execute_in_chunks_with_values(
         conn,
         |chunk| {
             // Clone the chunk into separate vectors to avoid borrowing issues
@@ -245,13 +224,15 @@ pub async fn get_prev_resources_in_batch(
                     SELECT * FROM UNNEST($1::text[], $2::text[], $3::bigint[])
                 )
                 SELECT
-                    ip.max_version as current_transaction_version, 
+                    ip.max_version as current_transaction_version,
+                    -1::bigint AS current_change_index,
                     ip.address as address, 
                     ip.resource_type as resource_type, 
-                    cr.transaction_version as prev_transaction_version, 
-                    cr.change_index as prev_change_index, 
-                    cr.is_delete as prev_is_delete, 
-                    cr.data as prev_data
+                    cr.transaction_version as other_transaction_version, 
+                    cr.change_index as other_change_index, 
+                    cr.is_delete as other_is_delete, 
+                    cr.data as other_data,
+                    true AS is_prev
                 FROM input_pairs ip
                 INNER JOIN LATERAL (
                     SELECT cr.transaction_version, cr.change_index, cr.is_delete, cr.data
@@ -291,11 +272,11 @@ pub async fn get_prev_table_items_in_batch(
     conn: ArcDbPool,
     items: Vec<(String, Value, i64)>, // table_handle, key, max_version
     per_table_chunk_sizes: &AHashMap<String, usize>
-) -> Result<AHashMap<(String, Value, i64), ChangeTableItemOldDataQueryModel>, diesel::result::Error> {
+) -> Result<AHashMap<(String, Value, i64), ChangeTableItemDiffModel>, diesel::result::Error> {
     let mut result_map = AHashMap::new();
 
     // Use execute_in_chunks_with_values to query in batches
-    let results: Vec<ChangeTableItemOldDataQueryModel> = execute_in_chunks_with_values(
+    let results: Vec<ChangeTableItemDiffModel> = execute_in_chunks_with_values(
         conn,
         |chunk| {
             // Clone the chunk into separate vectors to avoid borrowing issues
@@ -308,12 +289,14 @@ pub async fn get_prev_table_items_in_batch(
                     )
                     SELECT
                     ip.max_version as current_transaction_version, 
+                    -1::bigint AS current_change_index,
                     ip.table_handle as table_handle, 
                     ip.key as key, 
-                    cti.transaction_version as prev_transaction_version, 
-                    cti.change_index as prev_change_index, 
-                    cti.is_delete as prev_is_delete, 
-                    cti.value as prev_value
+                    cti.transaction_version as other_transaction_version, 
+                    cti.change_index as other_change_index, 
+                    cti.is_delete as other_is_delete, 
+                    cti.value as other_value,
+                    true AS is_prev
                     FROM input_pairs ip
                     INNER JOIN LATERAL (
                         SELECT cti.transaction_version, cti.change_index, cti.is_delete, cti.value
@@ -377,9 +360,10 @@ impl ProcessorTrait for TxnChangesProcessorDiffs {
         let processing_start = std::time::Instant::now();
         let last_transaction_timestamp = transactions.last().unwrap().timestamp.clone();
 
-        let mut change_resources_diffs = vec![];
-        let mut change_table_items_diffs = vec![];
-
+        let mut change_resources_diffs_prev_and_next: AHashMap<(i64, i64), AHashMap<&str, ChangeResourceDiffModel>> = AHashMap::new();
+        let mut change_table_diffs_prev_and_next: AHashMap<(i64, i64), AHashMap<&str, ChangeTableItemDiffModel>> = AHashMap::new();
+        let mut change_resources: Vec<ChangeResourceModel> = Vec::new();
+        let mut change_table_items: Vec<ChangeTableItemModel> = Vec::new();
         let mut address_resource_timestamp_triplete  = vec![];
         let mut table_handle_key_timestamp_triplete = vec![];
         for txn in &transactions {
@@ -500,16 +484,35 @@ impl ProcessorTrait for TxnChangesProcessorDiffs {
                                 resource.type_str.clone(),
                                 transaction_version,
                             )) {
-                                change_resources_diffs.push(ChangeResourceDiffModel {
-                                    transaction_version,
-                                    change_index: change_index as i64,
-                                    address : standardize_address(&resource.address),
-                                    resource_type : resource.type_str.clone(),
-                                    prev_transaction_version: Some(prev.prev_transaction_version),
-                                    prev_change_index: Some(prev.prev_change_index),
-                                    prev_is_delete: Some(prev.prev_is_delete),
-                                    prev_data: prev.prev_data.clone(),
-                                });
+                                let mut modified_prev = prev.clone();
+                                modified_prev.current_change_index = change_index as i64;
+                                change_resources_diffs_prev_and_next.entry((modified_prev.current_transaction_version, modified_prev.current_change_index))
+                                    .or_insert_with(AHashMap::new)
+                                    .insert("prev", modified_prev.clone());
+
+                                let resource_data = parse_change_data(&resource.data);
+                                if resource_data.is_none() {
+                                    error!(
+                                        "Skipping resource due to parsing error: transaction_version: {}, change_index: {}, raw data: {}",
+                                        transaction_version, change_index, resource.data
+                                    );
+                                    continue;
+                                }
+
+                                let next_change = ChangeResourceDiffModel {
+                                    current_transaction_version: prev.other_transaction_version,
+                                    current_change_index: prev.other_change_index,
+                                    address: standardize_address(&resource.address),
+                                    resource_type: resource.type_str.clone(),
+                                    other_transaction_version: transaction_version,
+                                    other_change_index: change_index as i64,
+                                    other_is_delete: false,
+                                    other_data: resource_data,
+                                    is_prev: false
+                                };
+                                change_resources_diffs_prev_and_next.entry((next_change.current_transaction_version, next_change.current_change_index))
+                                .or_insert_with(AHashMap::new)
+                                .insert("next", next_change.clone());
                             }
                         }
 
@@ -520,16 +523,26 @@ impl ProcessorTrait for TxnChangesProcessorDiffs {
                                 resource.type_str.clone(),
                                 transaction_version,
                             )) {
-                                change_resources_diffs.push(ChangeResourceDiffModel {
-                                    transaction_version,
-                                    change_index: change_index as i64,
-                                    address : standardize_address(&resource.address),
-                                    resource_type : resource.type_str.clone(),
-                                    prev_transaction_version: Some(prev.prev_transaction_version),
-                                    prev_change_index: Some(prev.prev_change_index),
-                                    prev_is_delete: Some(prev.prev_is_delete),
-                                    prev_data: prev.prev_data.clone(),
-                                });
+                                let mut modified_prev = prev.clone();
+                                modified_prev.current_change_index = change_index as i64;
+                                change_resources_diffs_prev_and_next.entry((modified_prev.current_transaction_version, modified_prev.current_change_index))
+                                    .or_insert_with(AHashMap::new)
+                                    .insert("prev", modified_prev.clone());
+
+                                let next_change = ChangeResourceDiffModel {
+                                    current_transaction_version: prev.other_transaction_version,
+                                    current_change_index: prev.other_change_index,
+                                    address: standardize_address(&resource.address),
+                                    resource_type: resource.type_str.clone(),
+                                    other_transaction_version: transaction_version,
+                                    other_change_index: change_index as i64,
+                                    other_is_delete: true,
+                                    other_data: None,
+                                    is_prev: false
+                                };
+                                change_resources_diffs_prev_and_next.entry((next_change.current_transaction_version, next_change.current_change_index))
+                                .or_insert_with(AHashMap::new)
+                                .insert("next", next_change.clone());
                             }
                         }
 
@@ -540,6 +553,12 @@ impl ProcessorTrait for TxnChangesProcessorDiffs {
                                 parse_change_data(&table_item.data.as_ref().unwrap().key).unwrap(),
                                 transaction_version,
                             )) {
+                                let mut modified_prev = prev.clone();
+                                modified_prev.current_change_index = change_index as i64;
+                                change_table_diffs_prev_and_next.entry((modified_prev.current_transaction_version, modified_prev.current_change_index))
+                                    .or_insert_with(AHashMap::new)
+                                    .insert("prev", modified_prev.clone());
+
                                 let table_item_data  = table_item.data.as_ref().unwrap();
                                 let key_data = parse_change_data(table_item_data.key.as_str());
                                 if key_data.is_none() {
@@ -549,19 +568,30 @@ impl ProcessorTrait for TxnChangesProcessorDiffs {
                                     );
                                     continue;
                                 }
-    
                                 let key_data = key_data.unwrap();
-                            
-                                change_table_items_diffs.push(ChangeTableItemDiffModel {
-                                    transaction_version,
-                                    change_index: change_index as i64,
+                                let value_data = parse_change_data(table_item_data.value.as_str());
+                                if value_data.is_none(){
+                                    error!(
+                                        "Skipping table item due to parsing error with the value of a write action: transaction_version: {}, change_index: {}, raw data: {}",
+                                        transaction_version, change_index, table_item_data.value.as_str()
+                                    );
+                                    continue;
+                                }
+
+                                let next_change = ChangeTableItemDiffModel {
+                                    current_transaction_version: prev.other_transaction_version,
+                                    current_change_index: prev.other_change_index,
                                     table_handle: standardize_address(&table_item.handle),
                                     key: key_data,
-                                    prev_transaction_version: Some(prev.prev_transaction_version),
-                                    prev_change_index: Some(prev.prev_change_index),
-                                    prev_is_delete: Some(prev.prev_is_delete),
-                                    prev_value: prev.prev_value.clone(),
-                                });
+                                    other_transaction_version: transaction_version,
+                                    other_change_index: change_index as i64,
+                                    other_is_delete: false,
+                                    other_value: value_data,
+                                    is_prev: false
+                                };
+                                change_table_diffs_prev_and_next.entry((next_change.current_transaction_version, next_change.current_change_index))
+                                    .or_insert_with(AHashMap::new)
+                                    .insert("next", next_change.clone());
                             }
                         }
 
@@ -572,6 +602,12 @@ impl ProcessorTrait for TxnChangesProcessorDiffs {
                                 parse_change_data(&table_item.data.as_ref().unwrap().key).unwrap(),
                                 transaction_version,
                             )) {
+                                let mut modified_prev = prev.clone();
+                                modified_prev.current_change_index = change_index as i64;
+                                change_table_diffs_prev_and_next.entry((modified_prev.current_transaction_version, modified_prev.current_change_index))
+                                    .or_insert_with(AHashMap::new)
+                                    .insert("prev", modified_prev.clone());
+
                                 let table_item_data  = table_item.data.as_ref().unwrap();
                                 let key_data = parse_change_data(table_item_data.key.as_str());
                                 if key_data.is_none() {
@@ -583,21 +619,63 @@ impl ProcessorTrait for TxnChangesProcessorDiffs {
                                 }
     
                                 let key_data = key_data.unwrap();
-                                change_table_items_diffs.push(ChangeTableItemDiffModel {
-                                    transaction_version,
-                                    change_index: change_index as i64,
+                                let next_change = ChangeTableItemDiffModel {
+                                    current_transaction_version: prev.other_transaction_version,
+                                    current_change_index: prev.other_change_index,
                                     table_handle: standardize_address(&table_item.handle),
                                     key: key_data,
-                                    prev_transaction_version: Some(prev.prev_transaction_version),
-                                    prev_change_index: Some(prev.prev_change_index),
-                                    prev_is_delete: Some(prev.prev_is_delete),
-                                    prev_value: prev.prev_value.clone(),
-                                });
+                                    other_transaction_version: transaction_version,
+                                    other_change_index: change_index as i64,
+                                    other_is_delete: true,
+                                    other_value: None,
+                                    is_prev: false
+                                };
+                                change_table_diffs_prev_and_next.entry((next_change.current_transaction_version, next_change.current_change_index))
+                                .or_insert_with(AHashMap::new)
+                                .insert("next", next_change.clone());
                             }
                         }
                         _ => {}
                     }
                 }
+            }
+        }
+
+        for diffs in change_resources_diffs_prev_and_next.values() {
+            if let Some(prev_diff) = diffs.get("prev") {
+                let mut change_resource = ChangeResourceDiffModel::into_change_resource(prev_diff.clone());
+        
+                if let Some(next_diff) = diffs.get("next") {
+                    // Modify the change_table_item to include the "next" fields
+                    change_resource.next_transaction_version = Some(next_diff.other_transaction_version);
+                    change_resource.next_change_index = Some(next_diff.other_change_index);
+                    change_resource.next_is_delete = Some(next_diff.other_is_delete);
+                    change_resource.next_data = next_diff.other_data.clone();
+                }
+        
+                change_resources.push(change_resource);
+            } else if let Some(next_diff) = diffs.get("next") {
+                let change_resource = ChangeResourceDiffModel::into_change_resource(next_diff.clone());
+                change_resources.push(change_resource);
+            }
+        }
+
+        for diffs in change_table_diffs_prev_and_next.values() {
+            if let Some(prev_diff) = diffs.get("prev") {
+                let mut change_table_item = ChangeTableItemDiffModel::into_change_table_item(prev_diff.clone());
+        
+                if let Some(next_diff) = diffs.get("next") {
+                    // Modify the change_table_item to include the "next" fields
+                    change_table_item.next_transaction_version = Some(next_diff.other_transaction_version);
+                    change_table_item.next_change_index = Some(next_diff.other_change_index);
+                    change_table_item.next_is_delete = Some(next_diff.other_is_delete);
+                    change_table_item.next_value = next_diff.other_value.clone();
+                }
+        
+                change_table_items.push(change_table_item);
+            } else if let Some(next_diff) = diffs.get("next") {
+                let change_table_item = ChangeTableItemDiffModel::into_change_table_item(next_diff.clone());
+                change_table_items.push(change_table_item);
             }
         }
         
@@ -608,8 +686,8 @@ impl ProcessorTrait for TxnChangesProcessorDiffs {
             self.name(),
             start_version,
             end_version,
-            &change_resources_diffs,
-            &change_table_items_diffs,
+            &change_resources,
+            &change_table_items,
             &self.per_table_chunk_sizes,
         )
         .await;

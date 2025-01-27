@@ -552,19 +552,20 @@ impl Worker {
                                 versions
                             },
                             Err(e) => {
+                                let elapsed_time = processing_time.elapsed().as_secs_f64();
                                 error!(
                                     processor_name = processor_name,
                                     stream_address = stream_address.as_str(),
                                     error = ?e,
                                     task_index,
-                                    "[Parser][T#{}] Error processing transactions", task_index
+                                    "[Parser][T#{}] Error processing transactions. Time taken: {:.3} seconds", task_index, elapsed_time
                                 );
                                 PROCESSOR_ERRORS_COUNT
                                     .with_label_values(&[processor_name])
                                     .inc();
                                 panic!(
-                                    "[Parser][T#{}] Error processing '{:}' transactions: {:?}",
-                                    task_index, processor_name, e
+                                    "[Parser][T#{}] Error processing '{:}' transactions: {:?}. Time taken: {:.3} seconds",
+                                    task_index, processor_name, e, elapsed_time
                                 );
                             },
                         };
@@ -698,7 +699,7 @@ impl Worker {
                     // Could not fetch transactions from channel. This happens when there are
                     // no more transactions to fetch and the channel is closed.
                     Err(e) => {
-                        error!(
+                        info!(
                             processor_name = processor_name,
                             stream_address = stream_address.as_str(),
                             error = ?e,
@@ -824,7 +825,7 @@ async fn fetch_transactions(
     match txn_pb_res {
         Ok(txn_pb) => Ok(txn_pb),
         Err(_e) => {
-            error!(
+            info!(
                 processor_name = processor_name,
                 service_type = PROCESSOR_SERVICE_TYPE,
                 stream_address = stream_address,

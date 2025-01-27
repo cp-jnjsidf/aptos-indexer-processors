@@ -1,8 +1,11 @@
 x-indexer: &indexer-base
-  image: oct8
+  build:
+    context: ./rust
+    dockerfile: Dockerfile
   restart: always
   volumes:
-    - ./config/config_user_transcations_new.yaml:/app/config/config.yaml
+    - ./config/config_coin_movements.yaml:/app/config/config.yaml
+    - ./ssl_cert:/app/ssl_cert
   networks:
     - aptos-network
     - default
@@ -20,6 +23,8 @@ x-indexer: &indexer-base
 
   command: ["--config-path", "/app/config/config.yaml"]
 
+
+
 x-indexer-changes: &indexer-base-changes
   build:
     context: ./rust
@@ -27,7 +32,7 @@ x-indexer-changes: &indexer-base-changes
   restart: always
   volumes:
     - ./config/config_tnx_changes.yaml:/app/config/config.yaml
-
+    - ./ssl_cert:/app/ssl_cert
   networks:
     - aptos-network
     - default
@@ -41,7 +46,7 @@ x-indexer-changes: &indexer-base-changes
     resources:
       limits:
         cpus: "6"
-        memory: "25g"
+        memory: "50g"
 
   command: ["--config-path", "/app/config/config.yaml"]
 
@@ -52,7 +57,7 @@ x-indexer-changes-diffs: &indexer-base-changes-diffs
   restart: always
   volumes:
     - ./config/config_tnx_changes_diffs.yaml:/app/config/config.yaml
-
+    - ./ssl_cert:/app/ssl_cert
   networks:
     - aptos-network
     - default
@@ -78,34 +83,11 @@ x-indexer-modules-changes: &indexer-base-modules-changes
   restart: always
   volumes:
     - ./config/config_tnx_changes_modules.yaml:/app/config/config.yaml
+    - ./ssl_cert:/app/ssl_cert
 
   networks:
     - aptos-network
     - default
-  logging:
-    driver: "json-file"
-    options:
-      max-size: "1m"
-      max-file: "3"
-
-  deploy:
-    resources:
-      limits:
-        cpus: "6"
-        memory: "25g"
-
-  command: ["--config-path", "/app/config/config.yaml"]
-
-x-indexer-ans: &indexer-base-ans
-  build:
-    context: ./rust
-    dockerfile: Dockerfile
-  restart: always
-  volumes:
-    - ./config/config_ans.yaml:/app/config/config.yaml
-    - ./ssl_cert:/app/ssl_cert
-
-  network_mode: "host"
   logging:
     driver: "json-file"
     options:
@@ -126,6 +108,7 @@ x-indexer-events: &indexer-base-events
   restart: always
   volumes:
     - ./config/config_events.yaml:/app/config/config.yaml
+    - ./ssl_cert:/app/ssl_cert
   networks:
     - aptos-network
     - default
@@ -153,10 +136,47 @@ services:
       RUNNER_ID: 0
       AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
 
+  rust-indexer-changes-1:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 1
+      AUTH_TOKEN: aptoslabs_HW99Hjfx4Rv_146A817vYhp5Zha3RVwZ7x9CycRWLmfHL
+
+  rust-indexer-changes-2:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 2
+      AUTH_TOKEN: aptoslabs_i33Aq9YZvCM_DPzuSvjuoxT7whQDiZd2nCTZi6C4wbDrU
+
+  rust-indexer-changes-3:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 3
+      AUTH_TOKEN: aptoslabs_fv8NiQf6hgS_PrPYYcR7P4ncgXmnLa5XECqF3VNbP4qjd
+
+  rust-indexer-changes-4:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 4
+      AUTH_TOKEN: aptoslabs_CpHfjajnWqH_G9xDPB41Y2DZGcPRt9oiM2A7LYEmoruYF
+
+  rust-indexer-changes-5:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 5
+      AUTH_TOKEN: aptoslabs_fv8NiQf6hgS_PrPYYcR7P4ncgXmnLa5XECqF3VNbP4qjd
+
+
   rust-indexer-changes-diffs:
     <<: *indexer-base-changes-diffs
     environment:
       RUNNER_ID: 0
+      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
+
+  rust-indexer-changes-diffs-1:
+    <<: *indexer-base-changes-diffs
+    environment:
+      RUNNER_ID: 1
       AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
 
 
@@ -173,24 +193,26 @@ services:
       RUNNER_ID: 0
       AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
 
-  rust-indexer-ans:
-    <<: *indexer-base-ans
-    environment:
-      RUNNER_ID: 0
-      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
 
-  rust-indexer-events-old:
-    <<: *indexer-base-events
-    environment:
-      RUNNER_ID: 1
-      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
-
-
-  # rust-indexer-1:
-  #   <<: *indexer-base
+  # rust-indexer-events-1:
+  #   <<: *indexer-base-events
   #   environment:
   #     RUNNER_ID: 1
-  #     AUTH_TOKEN: aptoslabs_fv8NiQf6hgS_PrPYYcR7P4ncgXmnLa5XECqF3VNbP4qjd
+  #     AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
+
+
+  rust-indexer-0:
+    <<: *indexer-base
+    environment:
+      RUNNER_ID: 0
+      AUTH_TOKEN: aptoslabs_fv8NiQf6hgS_PrPYYcR7P4ncgXmnLa5XECqF3VNbP4qjd
+
+
+  rust-indexer-1:
+    <<: *indexer-base
+    environment:
+      RUNNER_ID: 1
+      AUTH_TOKEN: aptoslabs_fv8NiQf6hgS_PrPYYcR7P4ncgXmnLa5XECqF3VNbP4qjd
 
   rust-indexer-2:
     <<: *indexer-base
@@ -204,25 +226,25 @@ services:
       RUNNER_ID: 3
       AUTH_TOKEN: aptoslabs_HW99Hjfx4Rv_146A817vYhp5Zha3RVwZ7x9CycRWLmfHL
 
-  index-processor-coins-python:
-    build: ../../indexer/web3-security/indexer/python/
-    restart: always
-    environment:
-      DB_CONNECTION_URI: postgresql://dbadmin:CvGbESSqy428OEza96VPVkO9FFs2F8@postgres-public.cyt0fqqed8cg.eu-west-1.rds.amazonaws.com:5432/postgres
-      AUTH_TOKEN: ${AUTH_TOKEN}
-    volumes:
-      - ../../indexer/web3-security/indexer/config/config_custom_processor.yaml:/app/config/config.yaml
-    networks:
-      - aptos-network
-      - default
-    ports:
-      - "8085:8085"
-      - "8081:8080"
-    deploy:
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: "2g"
+  # index-processor-coins-python:
+  #   build: ../../indexer/web3-security/indexer/python/
+  #   restart: always
+  #   environment:
+  #     DB_CONNECTION_URI: postgresql://dbadmin:CvGbESSqy428OEza96VPVkO9FFs2F8@postgres-public.cyt0fqqed8cg.eu-west-1.rds.amazonaws.com:5432/postgres
+  #     AUTH_TOKEN: ${AUTH_TOKEN}
+  #   volumes:
+  #     - ../../indexer/web3-security/indexer/config/config_custom_processor.yaml:/app/config/config.yaml
+  #   networks:
+  #     - aptos-network
+  #     - default
+  #   ports:
+  #     - "8085:8085"
+  #     - "8081:8080"
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "0.25"
+  #         memory: "2g"
 
   mongo-new:
     image: mongo:6.0
@@ -294,8 +316,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "24"  # Limit to 25% of a single CPU core
-          memory: "250g"
+          cpus: "40"  # Limit to 25% of a single CPU core
+          memory: "400g"
 
   mysql:
     image: mysql:8.0

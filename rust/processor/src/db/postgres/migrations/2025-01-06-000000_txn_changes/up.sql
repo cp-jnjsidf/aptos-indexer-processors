@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS public.change_resources (
     prev_change_index BIGINT,
     prev_is_delete BOOLEAN,
     prev_data JSONB,
+    next_transaction_version BIGINT,
+    next_change_index BIGINT,
+    next_is_delete BOOLEAN,
+    next_data JSONB,
     inserted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT change_resources_pkey PRIMARY KEY (transaction_version, change_index),
     CONSTRAINT data_null_when_deleted CHECK (
@@ -50,6 +54,10 @@ CREATE TABLE IF NOT EXISTS public.change_table_items (
     prev_change_index BIGINT,
     prev_is_delete BOOLEAN,
     prev_value JSONB,
+    next_transaction_version BIGINT,
+    next_change_index BIGINT,
+    next_is_delete BOOLEAN,
+    next_value JSONB,
     inserted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT change_table_items_pkey PRIMARY KEY (transaction_version, change_index),
     CONSTRAINT data_null_when_deleted_table CHECK (
@@ -107,6 +115,12 @@ ON public.change_table_items (table_handle, transaction_version DESC);
 CREATE INDEX IF NOT EXISTS idx_table_handle_timestamp
     ON public.change_table_items (table_handle ASC, transaction_timestamp DESC);
 
+CREATE INDEX IF NOT EXISTS idx_transaction_address_resource
+ON public.change_resources (
+    transaction_version, 
+    address, 
+    resource_type
+);
 
 -- Index for ascending sort by transaction_version
 CREATE INDEX IF NOT EXISTS idx_modules_changes_address_txn_asc

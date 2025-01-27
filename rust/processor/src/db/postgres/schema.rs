@@ -1305,7 +1305,10 @@ diesel::table! {
         prev_change_index -> Nullable<Int8>,
         prev_is_delete -> Nullable<diesel::sql_types::Bool>,
         prev_data -> Nullable<Jsonb>,
-        // generic_type_params -> Nullable<Jsonb>,
+        next_transaction_version -> Nullable<Int8>,
+        next_change_index -> Nullable<Int8>,
+        next_is_delete -> Nullable<diesel::sql_types::Bool>,
+        next_data -> Nullable<Jsonb>,
         inserted_at -> Timestamp,
     }
 }
@@ -1335,6 +1338,10 @@ diesel::table! {
         prev_change_index -> Nullable<Int8>,
         prev_is_delete -> Nullable<diesel::sql_types::Bool>,
         prev_value -> Nullable<Jsonb>,
+        next_transaction_version -> Nullable<Int8>,
+        next_change_index -> Nullable<Int8>,
+        next_is_delete -> Nullable<diesel::sql_types::Bool>,
+        next_value -> Nullable<Jsonb>,
         inserted_at -> Timestamp,
     }
 }

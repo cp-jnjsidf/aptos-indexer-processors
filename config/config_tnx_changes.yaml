@@ -2,8 +2,9 @@ health_check_port: 8087
 server_config:
   processor_config:
     type: txn_changes_processor
-  postgres_connection_string: postgresql://postgres:example@db-test:5432/postgres
+  postgres_connection_string: postgresql://dbadmin:CvGbESSqy428OEza96VPVkO9FFs2F8@postgres-public.cyt0fqqed8cg.eu-west-1.rds.amazonaws.com:5432/postgres?sslrootcert=/app/ssl_cert/rds-combined-ca-bundle.pem
   indexer_grpc_data_service_address: https://grpc.mainnet.aptoslabs.com:443
   enable_verbose_logging: true
+  db_pool_size: 2500
 
 

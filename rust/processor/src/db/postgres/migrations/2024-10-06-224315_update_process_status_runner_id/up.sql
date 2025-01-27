@@ -1,11 +1,9 @@
-CREATE TABLE IF NOT EXISTS processor_status (LIKE processor_status_old INCLUDING ALL);
-
 BEGIN;
 
 -- Step 1: Add columns if they do not already exist
 ALTER TABLE processor_status
 ADD COLUMN IF NOT EXISTS runner_id BIGINT NOT NULL DEFAULT 0,
-ADD COLUMN IF NOT EXISTS start_version BIGINT NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS start_version BIGINT NOT NULL DEFAULT -1,
 ADD COLUMN IF NOT EXISTS upper_bound BIGINT;
 
 -- Step 2: Set any NULL values to default values (if necessary)
@@ -15,7 +13,7 @@ WHERE runner_id IS NULL;
 
 -- Step 3: Drop existing primary key constraint, if it exists
 ALTER TABLE processor_status
-DROP CONSTRAINT IF EXISTS processor_status_pkey1;
+DROP CONSTRAINT IF EXISTS processor_status_pkey;
 
 -- Step 4: Add composite primary key
 ALTER TABLE processor_status

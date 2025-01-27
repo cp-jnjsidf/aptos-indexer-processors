@@ -27,6 +27,8 @@ CREATE TABLE IF NOT EXISTS fungible_asset_activities (
   asset_type VARCHAR(1000) NOT NULL,
   is_frozen BOOLEAN,
   amount NUMERIC,
+  number_used_gas_units numeric,
+  max_gas_price numeric,
   type VARCHAR NOT NULL,
   is_gas_fee BOOLEAN NOT NULL,
   gas_fee_payer_address VARCHAR(66),
@@ -36,6 +38,12 @@ CREATE TABLE IF NOT EXISTS fungible_asset_activities (
   token_standard VARCHAR(10) NOT NULL,
   transaction_timestamp TIMESTAMP NOT NULL,
   inserted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  txn_hash character varying(66) COLLATE pg_catalog."default" NOT NULL,
+  sender character varying(66) COLLATE pg_catalog."default",
+  txn_args jsonb,
+  txn_timestamp_id bigint NOT NULL,
+  storage_refund_amount numeric NOT NULL,
+  balance numeric NOT NULL,
   -- constraints
   PRIMARY KEY (transaction_version, event_index)
 );

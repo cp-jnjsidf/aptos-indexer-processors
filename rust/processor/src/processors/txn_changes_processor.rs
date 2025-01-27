@@ -128,13 +128,42 @@ fn insert_table_items_query(
     )
 }
 
-fn parse_change_data(resource_data: &str) -> Option<Value> {
-    if let Ok(json) = serde_json::from_str::<Value>(resource_data) {
-        if let Some(inner) = json.as_str() {
-            return serde_json::from_str::<Value>(inner).ok().or(Some(json));
+fn sanitize_json(value: &mut Value) {
+    match value {
+        Value::String(s) => {
+            // Remove all `\0` characters from the string
+            *s = s.replace('\0', "");
         }
+        Value::Object(map) => {
+            // Recursively sanitize all values in the map
+            for v in map.values_mut() {
+                sanitize_json(v);
+            }
+        }
+        Value::Array(arr) => {
+            // Recursively sanitize all items in the array
+            for v in arr.iter_mut() {
+                sanitize_json(v);
+            }
+        }
+        _ => {
+            // Do nothing for non-string primitive values (Number, Bool, Null)
+        }
+    }
+}
+
+fn parse_change_data(resource_data: &str) -> Option<Value> {
+    if let Ok(mut json) = serde_json::from_str::<Value>(resource_data) {
+        if let Some(inner) = json.as_str() {
+            let mut res = serde_json::from_str::<Value>(inner).unwrap_or(json);
+            sanitize_json(&mut res);
+            return Some(res);
+            
+        }
+        sanitize_json(&mut json);
         return Some(json);
     }
+    tracing::warn!("Skipped parse_change_data for data: {}", resource_data);
     None
 }
 
@@ -194,7 +223,6 @@ impl ProcessorTrait for TxnChangesProcessor {
                 _ => (None, None),
                 
             };
-
             let is_transaction_success = transaction_info.success;
             for (change_index, wsc) in transaction_info.changes.iter().enumerate() {
                 if let Some(change) = wsc.change.as_ref() {
@@ -240,7 +268,7 @@ impl ProcessorTrait for TxnChangesProcessor {
                         Change::DeleteResource(resource) =>
                         {
                             let is_delete = true;
-                            let resource_data = Some(serde_json::Value::Null);
+                            let resource_data = None;
                             let state_key_hash = standardize_address(
                                 hex::encode(resource.state_key_hash.as_slice()).as_str(),
                             );
@@ -334,7 +362,7 @@ impl ProcessorTrait for TxnChangesProcessor {
                             }
 
                             let table_item_data  = table_item.data.as_ref().unwrap();
-                            let value_data = Some(serde_json::Value::Null);
+                            let value_data = None;
                             let key_data = parse_change_data(table_item_data.key.as_str());
                             if key_data.is_none() {
                                 error!(

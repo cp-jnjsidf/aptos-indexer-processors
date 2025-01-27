@@ -30,7 +30,11 @@ pub struct ChangeResource {
     pub prev_transaction_version: Option<i64>,
     pub prev_change_index: Option<i64>,
     pub prev_is_delete: Option<bool>,
-    pub prev_data: Option<serde_json::Value>
+    pub prev_data: Option<serde_json::Value>,
+    pub next_transaction_version: Option<i64>,
+    pub next_change_index: Option<i64>,
+    pub next_is_delete: Option<bool>,
+    pub next_data: Option<serde_json::Value>
 }
 
 impl ChangeResource {
@@ -67,44 +71,60 @@ impl ChangeResource {
             prev_change_index: None,
             prev_is_delete: None,
             prev_data: None,
+            next_transaction_version: None,
+            next_change_index: None,
+            next_is_delete: None,
+            next_data: None,
         }
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Insertable, QueryableByName)]
-#[diesel(table_name = change_resources)]
+#[derive(Debug, QueryableByName, Clone, QueryId, Deserialize, Serialize)]
+
 pub struct ChangeResourceDiff {
-    pub transaction_version: i64,
-    pub change_index: i64,
+    #[diesel(sql_type = BigInt)]
+    pub current_transaction_version: i64,
+    #[diesel(sql_type = BigInt)]
+    pub current_change_index: i64,
+    #[diesel(sql_type = Text)]
     pub address: String,
+    #[diesel(sql_type = Text)]
     pub resource_type: String,
-    pub prev_transaction_version: Option<i64>,
-    pub prev_change_index: Option<i64>,
-    pub prev_is_delete: Option<bool>,
-    pub prev_data: Option<serde_json::Value>,
+    #[diesel(sql_type = BigInt)]
+    pub other_transaction_version: i64,
+    #[diesel(sql_type = BigInt)]
+    pub other_change_index: i64,
+    #[diesel(sql_type = Bool)]
+    pub other_is_delete: bool,
+    #[diesel(sql_type = Nullable<Jsonb>)]
+    pub other_data: Option<serde_json::Value>,
+    #[diesel(sql_type = Bool)]
+    pub is_prev: bool
 }
 
 impl ChangeResourceDiff {
     /// Creates a new `ChangeResourceDiff` from transaction details
     pub fn from_transaction(
-        transaction_version: i64,
-        change_index: i64,
+        current_transaction_version: i64,
+        current_change_index: i64,
         address: &str,
         resource_type: &str,
-        prev_transaction_version: Option<i64>,
-        prev_change_index: Option<i64>,
-        prev_is_delete: Option<bool>,
-        prev_data: Option<serde_json::Value>,
+        other_transaction_version: i64,
+        other_change_index: i64,
+        other_is_delete: bool,
+        other_data: Option<serde_json::Value>,
+        is_prev: bool
     ) -> Self {
         ChangeResourceDiff {
-            transaction_version,
-            change_index,
+            current_transaction_version,
+            current_change_index,
             address: address.to_string(),
             resource_type: resource_type.to_string(),
-            prev_transaction_version,
-            prev_change_index,
-            prev_is_delete,
-            prev_data,
+            other_transaction_version,
+            other_change_index,
+            other_is_delete,
+            other_data,
+            is_prev
         }
     }
 
@@ -113,55 +133,59 @@ impl ChangeResourceDiff {
     pub fn into_change_resource(
         self
     ) -> ChangeResource {
-        ChangeResource {
-            transaction_version: self.transaction_version,
-            transaction_block_height : 0,
-            change_index: self.change_index,
-            transaction_hash: "".to_string(),
-            #[allow(deprecated)]
-            transaction_timestamp: chrono::NaiveDateTime::from_timestamp(0, 0),
-            transaction_sender: Some("".to_string()),
-            transaction_entry_function_id_str: Some("".to_string()),
-            is_transaction_success: false,
-            state_key_hash: "".to_string(),
-            is_delete: true,
-            address: self.address,
-            resource_type: self.resource_type,
-            data: None,
-            prev_transaction_version: self.prev_transaction_version,
-            prev_change_index: self.prev_change_index,
-            prev_is_delete: self.prev_is_delete,
-            prev_data: self.prev_data,
+        match self.is_prev {
+            true => ChangeResource {
+                transaction_version: self.current_transaction_version,
+                transaction_block_height : 0,
+                change_index: self.current_change_index,
+                transaction_hash: "".to_string(),
+                #[allow(deprecated)]
+                transaction_timestamp: chrono::NaiveDateTime::from_timestamp(0, 0),
+                transaction_sender: Some("".to_string()),
+                transaction_entry_function_id_str: Some("".to_string()),
+                is_transaction_success: false,
+                state_key_hash: "".to_string(),
+                is_delete: true,
+                address: self.address,
+                resource_type: self.resource_type,
+                data: None,
+                prev_transaction_version: Some(self.other_transaction_version),
+                prev_change_index: Some(self.other_change_index),
+                prev_is_delete: Some(self.other_is_delete),
+                prev_data: self.other_data,
+                next_transaction_version: None,
+                next_change_index: None,
+                next_is_delete: None,
+                next_data: None,
+
+            },
+            false => ChangeResource {
+                transaction_version: self.current_transaction_version,
+                transaction_block_height : 0,
+                change_index: self.current_change_index,
+                transaction_hash: "".to_string(),
+                #[allow(deprecated)]
+                transaction_timestamp: chrono::NaiveDateTime::from_timestamp(0, 0),
+                transaction_sender: Some("".to_string()),
+                transaction_entry_function_id_str: Some("".to_string()),
+                is_transaction_success: false,
+                state_key_hash: "".to_string(),
+                is_delete: true,
+                address: self.address,
+                resource_type: self.resource_type,
+                data: None,
+                prev_transaction_version: None,
+                prev_change_index: None,
+                prev_is_delete: None,
+                prev_data: None,
+                next_transaction_version: Some(self.other_transaction_version),
+                next_change_index: Some(self.other_change_index),
+                next_is_delete: Some(self.other_is_delete),
+                next_data: self.other_data,
+            }
         }
     }
 }
-
-
-
-#[derive(Debug, QueryableByName, Clone, QueryId)]
-pub struct ChangeResourceOldDataQuery {
-    #[diesel(sql_type = BigInt)]
-    pub current_transaction_version: i64,
-
-    #[diesel(sql_type = Text)]
-    pub address: String,
-
-    #[diesel(sql_type = Text)]
-    pub resource_type: String,
-
-    #[diesel(sql_type = BigInt)]
-    pub prev_transaction_version: i64,
-
-    #[diesel(sql_type = BigInt)]
-    pub prev_change_index: i64,
-
-    #[diesel(sql_type = Bool)]
-    pub prev_is_delete: bool,
-
-    #[diesel(sql_type = Nullable<Jsonb>)]
-    pub prev_data: Option<serde_json::Value>,
-}
-
 
 
 // Prevent conflicts with other things named `ChangeResource`
@@ -170,5 +194,3 @@ pub type ChangeResourceModel = ChangeResource;
 
 // Prevent conflicts with other things named `ChangeResourceDiff`
 pub type ChangeResourceDiffModel = ChangeResourceDiff;
-
-pub type ChangeResourceOldDataQueryModel = ChangeResourceOldDataQuery;
