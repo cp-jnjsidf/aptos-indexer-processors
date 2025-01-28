@@ -8,11 +8,12 @@
 #![allow(clippy::unused_unit)]
 use field_count::FieldCount;
 use serde::{Deserialize, Serialize};
-use crate::schema::change_resources;
+use crate::schema::change_resources_partition;
 use diesel::sql_types::{BigInt, Bool, Jsonb, Text, Nullable};
+use std::env;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Queryable, FieldCount, Insertable)]
-#[diesel(table_name = change_resources)]
+#[diesel(table_name = change_resources_partition)]
 pub struct ChangeResource {
     pub transaction_version: i64,
     pub transaction_block_height : i64,
@@ -34,7 +35,8 @@ pub struct ChangeResource {
     pub next_transaction_version: Option<i64>,
     pub next_change_index: Option<i64>,
     pub next_is_delete: Option<bool>,
-    pub next_data: Option<serde_json::Value>
+    pub next_data: Option<serde_json::Value>,
+    pub runner_id: i64
 }
 
 impl ChangeResource {
@@ -53,6 +55,10 @@ impl ChangeResource {
         resource_type: &str,
         data: &Option<serde_json::Value>,
     ) -> Self {
+        let runner_id: i32 = env::var("RUNNER_ID")
+        .unwrap_or("0".to_string()) // Default to "0" if the environment variable is not set
+        .parse()
+        .unwrap_or(0); 
         ChangeResource {
             transaction_version,
             transaction_block_height,
@@ -75,6 +81,7 @@ impl ChangeResource {
             next_change_index: None,
             next_is_delete: None,
             next_data: None,
+            runner_id: runner_id as i64
         }
     }
 }
@@ -133,6 +140,10 @@ impl ChangeResourceDiff {
     pub fn into_change_resource(
         self
     ) -> ChangeResource {
+        let runner_id: i32 = env::var("RUNNER_ID")
+        .unwrap_or("0".to_string()) // Default to "0" if the environment variable is not set
+        .parse()
+        .unwrap_or(0); 
         match self.is_prev {
             true => ChangeResource {
                 transaction_version: self.current_transaction_version,
@@ -157,6 +168,7 @@ impl ChangeResourceDiff {
                 next_change_index: None,
                 next_is_delete: None,
                 next_data: None,
+                runner_id: runner_id as i64
 
             },
             false => ChangeResource {
@@ -182,6 +194,7 @@ impl ChangeResourceDiff {
                 next_change_index: Some(self.other_change_index),
                 next_is_delete: Some(self.other_is_delete),
                 next_data: self.other_data,
+                runner_id: runner_id as i64
             }
         }
     }

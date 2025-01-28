@@ -95,11 +95,11 @@ fn insert_change_resources_query(
     impl QueryFragment<Pg> + diesel::query_builder::QueryId + Send,
     Option<&'static str>,
 ) {
-    use schema::change_resources::dsl::*;
+    use schema::change_resources_partition::dsl::*;
     (
-        diesel::insert_into(schema::change_resources::table)
+        diesel::insert_into(schema::change_resources_partition::table)
             .values(items_to_insert)
-            .on_conflict((transaction_version, change_index))
+            .on_conflict((transaction_version, change_index, runner_id))
             .do_update()
             .set((
                 address.eq(excluded(address)),
@@ -115,11 +115,11 @@ fn insert_table_items_query(
     impl QueryFragment<Pg> + diesel::query_builder::QueryId + Send,
     Option<&'static str>,
 ) {
-    use schema::change_table_items::dsl::*;
+    use schema::change_table_items_partition::dsl::*;
     (
-        diesel::insert_into(schema::change_table_items::table)
+        diesel::insert_into(schema::change_table_items_partition::table)
             .values(items_to_insert)
-            .on_conflict((transaction_version, change_index))
+            .on_conflict((transaction_version, change_index, runner_id))
             .do_update()
             .set((
                 inserted_at.eq(excluded(inserted_at)),

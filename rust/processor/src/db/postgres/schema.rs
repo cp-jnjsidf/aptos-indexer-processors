@@ -1283,7 +1283,7 @@ diesel::table! {
 }
 
 diesel::table! {
-    change_resources (transaction_version, change_index) {
+    change_resources_partition (transaction_version, change_index) {
         transaction_version -> Int8,
         transaction_block_height -> Int8,
         change_index -> Int8,
@@ -1310,11 +1310,12 @@ diesel::table! {
         next_is_delete -> Nullable<diesel::sql_types::Bool>,
         next_data -> Nullable<Jsonb>,
         inserted_at -> Timestamp,
+        runner_id -> Int8
     }
 }
 
 diesel::table! {
-    change_table_items (transaction_version, change_index) {
+    change_table_items_partition (transaction_version, change_index) {
         transaction_version -> Int8,
         transaction_block_height -> Int8,
         change_index -> Int8,
@@ -1343,6 +1344,7 @@ diesel::table! {
         next_is_delete -> Nullable<diesel::sql_types::Bool>,
         next_value -> Nullable<Jsonb>,
         inserted_at -> Timestamp,
+        runner_id -> Int8
     }
 }
 

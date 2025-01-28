@@ -82,7 +82,7 @@ impl IndexerGrpcProcessorConfig {
     pub const fn default_grpc_response_item_timeout_in_secs() -> u64 {
         60
     }
-    fn get_runner_id(&self) -> i64 {
+    pub fn get_runner_id(&self) -> i64 {
         self.runner_id.unwrap_or_else(|| {
             env::var("RUNNER_ID")
                 .ok()

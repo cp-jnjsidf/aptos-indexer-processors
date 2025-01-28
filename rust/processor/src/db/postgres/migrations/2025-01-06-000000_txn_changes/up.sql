@@ -2,7 +2,7 @@
 
 -- DROP TABLE IF EXISTS public.change_resources;
 
-CREATE TABLE IF NOT EXISTS public.change_resources (
+CREATE TABLE IF NOT EXISTS public.change_resources_partition (
     transaction_version BIGINT NOT NULL,
     transaction_block_height BIGINT NOT NULL,
     change_index BIGINT NOT NULL,
@@ -25,16 +25,28 @@ CREATE TABLE IF NOT EXISTS public.change_resources (
     next_is_delete BOOLEAN,
     next_data JSONB,
     inserted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT change_resources_pkey PRIMARY KEY (transaction_version, change_index),
+    runner_id INT NOT NULL DEFAULT 0,
+    CONSTRAINT change_resources_partition_pkey PRIMARY KEY (runner_id, transaction_version, change_index),
     CONSTRAINT data_null_when_deleted CHECK (
         ((is_delete = TRUE AND data IS NULL) OR
         (is_delete = FALSE AND data IS NOT NULL))
     )
-);
+) PARTITION BY LIST (runner_id);
+
+DO $$
+BEGIN
+    FOR i IN 0..13 LOOP
+        EXECUTE format('
+            CREATE TABLE public.change_resources_partition_%s
+            PARTITION OF public.change_resources_partition
+            FOR VALUES IN (%s);
+        ', i, i);
+    END LOOP;
+END $$;
 
 
 
-CREATE TABLE IF NOT EXISTS public.change_table_items (
+CREATE TABLE IF NOT EXISTS public.change_table_items_partition (
     transaction_version BIGINT NOT NULL,
     transaction_block_height BIGINT NOT NULL,
     change_index BIGINT NOT NULL,
@@ -59,14 +71,27 @@ CREATE TABLE IF NOT EXISTS public.change_table_items (
     next_is_delete BOOLEAN,
     next_value JSONB,
     inserted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT change_table_items_pkey PRIMARY KEY (transaction_version, change_index),
+    runner_id INT NOT NULL DEFAULT 0,
+    CONSTRAINT change_table_items_partition_pkey PRIMARY KEY (runner_id, transaction_version, change_index),
     CONSTRAINT data_null_when_deleted_table CHECK (
         ((is_delete = TRUE AND value IS NULL) OR
         (is_delete = FALSE AND value IS NOT NULL)) AND
         ((is_delete = TRUE AND value_type IS NULL) OR
         (is_delete = FALSE AND value_type IS NOT NULL))
     )
-);
+) PARTITION BY LIST (runner_id);
+
+DO $$
+BEGIN
+    FOR i IN 0..13 LOOP
+        EXECUTE format('
+            CREATE TABLE public.change_table_items_partition_%s
+            PARTITION OF public.change_table_items_partition
+            FOR VALUES IN (%s);
+        ', i, i);
+    END LOOP;
+END $$;
+
 
 CREATE TABLE IF NOT EXISTS public.change_modules (
     transaction_version BIGINT NOT NULL,

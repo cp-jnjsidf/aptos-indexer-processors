@@ -93,13 +93,13 @@ fn insert_change_resources_diff_query(
     impl QueryFragment<Pg> + diesel::query_builder::QueryId + Send,
     Option<&'static str>,
 ) {
-    use schema::change_resources::dsl::*;
+    use schema::change_resources_partition::dsl::*;
     use diesel::prelude::*;
     use diesel::dsl::sql;
     (
-        diesel::insert_into(change_resources)
+        diesel::insert_into(change_resources_partition)
             .values(changes) // Insert all the diffs
-            .on_conflict((transaction_version, change_index)) // Conflict key
+            .on_conflict((transaction_version, change_index, runner_id)) // Conflict key
             .do_update()
             .set((
                 prev_transaction_version.eq(sql("COALESCE(EXCLUDED.prev_transaction_version, change_resources.prev_transaction_version)")),
@@ -121,13 +121,13 @@ fn insert_table_items_diffs_query(
     impl QueryFragment<Pg> + diesel::query_builder::QueryId + Send,
     Option<&'static str>,
 ) {
-    use schema::change_table_items::dsl::*;
+    use schema::change_table_items_partition::dsl::*;
     use diesel::prelude::*;
     use diesel::dsl::sql;
     (
-        diesel::insert_into(change_table_items)
+        diesel::insert_into(change_table_items_partition)
             .values(changes) // Insert all the diffs
-            .on_conflict((transaction_version, change_index)) // Conflict key
+            .on_conflict((transaction_version, change_index, runner_id)) // Conflict key
             .do_update()
             .set((
                 prev_transaction_version.eq(sql("COALESCE(EXCLUDED.prev_transaction_version, change_table_items.prev_transaction_version)")),

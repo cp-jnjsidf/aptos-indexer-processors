@@ -164,6 +164,56 @@ services:
     <<: *indexer-base-changes
     environment:
       RUNNER_ID: 5
+      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
+
+  rust-indexer-changes-6:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 6
+      AUTH_TOKEN: aptoslabs_HW99Hjfx4Rv_146A817vYhp5Zha3RVwZ7x9CycRWLmfHL
+
+  rust-indexer-changes-7:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 7
+      AUTH_TOKEN: aptoslabs_i33Aq9YZvCM_DPzuSvjuoxT7whQDiZd2nCTZi6C4wbDrU
+
+  rust-indexer-changes-8:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 8
+      AUTH_TOKEN: aptoslabs_fv8NiQf6hgS_PrPYYcR7P4ncgXmnLa5XECqF3VNbP4qjd
+
+  rust-indexer-changes-9:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 9
+      AUTH_TOKEN: aptoslabs_CpHfjajnWqH_G9xDPB41Y2DZGcPRt9oiM2A7LYEmoruYF
+
+  rust-indexer-changes-10:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 10
+      AUTH_TOKEN: aptoslabs_f8QKqfRTFo2_AfiDo3ZFEyTVpfU3qt4WC75GNb7gU3H1x
+
+  rust-indexer-changes-11:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 11
+      AUTH_TOKEN: aptoslabs_HW99Hjfx4Rv_146A817vYhp5Zha3RVwZ7x9CycRWLmfHL
+
+
+  rust-indexer-changes-12:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 12
+      AUTH_TOKEN: aptoslabs_i33Aq9YZvCM_DPzuSvjuoxT7whQDiZd2nCTZi6C4wbDrU
+
+
+  rust-indexer-changes-13:
+    <<: *indexer-base-changes
+    environment:
+      RUNNER_ID: 13
       AUTH_TOKEN: aptoslabs_fv8NiQf6hgS_PrPYYcR7P4ncgXmnLa5XECqF3VNbP4qjd
 
 

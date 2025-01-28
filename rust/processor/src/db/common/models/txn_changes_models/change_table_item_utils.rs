@@ -8,12 +8,12 @@
 #![allow(clippy::unused_unit)]
 use field_count::FieldCount;
 use serde::{Deserialize, Serialize};
-use crate::schema::change_table_items;
+use crate::schema::change_table_items_partition;
 use diesel::sql_types::{BigInt, Bool, Jsonb, Text, Nullable};
-
+use std::env;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Queryable, FieldCount, Insertable)]
-#[diesel(table_name = change_table_items)]
+#[diesel(table_name = change_table_items_partition)]
 pub struct ChangeTableItem {
     pub transaction_version: i64,
     pub transaction_block_height : i64,
@@ -38,6 +38,7 @@ pub struct ChangeTableItem {
     pub next_change_index: Option<i64>,
     pub next_is_delete: Option<bool>,
     pub next_value: Option<serde_json::Value>,
+    pub runner_id: i64
 }
 
 impl ChangeTableItem {
@@ -58,6 +59,10 @@ impl ChangeTableItem {
         value_type: &Option<String>,
         value: &Option<serde_json::Value>
     ) -> Self {
+        let runner_id: i32 = env::var("RUNNER_ID")
+        .unwrap_or("0".to_string()) // Default to "0" if the environment variable is not set
+        .parse()
+        .unwrap_or(0); 
         ChangeTableItem {
             transaction_version,
             transaction_block_height,
@@ -81,7 +86,8 @@ impl ChangeTableItem {
             next_transaction_version : None,
             next_change_index : None,
             next_is_delete : None,
-            next_value : None
+            next_value : None,
+            runner_id: runner_id as i64
         }
     }
 }
@@ -137,6 +143,10 @@ impl ChangeTableItemDiff {
     pub fn into_change_table_item(
         self
     ) -> ChangeTableItem {
+        let runner_id: i32 = env::var("RUNNER_ID")
+        .unwrap_or("0".to_string()) // Default to "0" if the environment variable is not set
+        .parse()
+        .unwrap_or(0);
         match self.is_prev {
             true => ChangeTableItem { 
                 transaction_version: self.current_transaction_version,
@@ -163,6 +173,7 @@ impl ChangeTableItemDiff {
                 next_change_index: None,
                 next_is_delete: None,
                 next_value: None,
+                runner_id: runner_id as i64
             },
             false => ChangeTableItem { 
                 transaction_version: self.current_transaction_version,
@@ -189,6 +200,7 @@ impl ChangeTableItemDiff {
                 next_change_index: Some(self.other_change_index),
                 next_is_delete: Some(self.other_is_delete),
                 next_value: self.other_value,
+                runner_id: runner_id as i64
             }
         }
     }
