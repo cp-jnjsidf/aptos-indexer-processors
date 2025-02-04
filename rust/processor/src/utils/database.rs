@@ -176,13 +176,9 @@ where
     };
     let debug_string = diesel::debug_query::<Backend, _>(&final_query).to_string();
     tracing::debug!("Executing query: {:?}", debug_string);
-    let conn = &mut pool.get().await.map_err(|e| {
-        tracing::warn!("Error getting connection from pool: {:?}", e);
-        diesel::result::Error::DatabaseError(
-            diesel::result::DatabaseErrorKind::UnableToSendCommand,
-            Box::new(e.to_string()),
-        )
-    })?;
+    let conn = &mut pool.get().await.unwrap_or_else(|e| {
+        panic!("Error getting connection from pool: {:?}", e);
+    });
     let res = final_query.execute(conn).await;
     if let Err(ref e) = res {
         tracing::warn!("Error running query: {:?}\n{:?}", e, debug_string);

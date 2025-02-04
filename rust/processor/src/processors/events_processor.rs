@@ -78,11 +78,11 @@ fn insert_events_query(
     impl QueryFragment<Pg> + diesel::query_builder::QueryId + Send,
     Option<&'static str>,
 ) {
-    use schema::events::dsl::*;
+    use schema::events_partition::dsl::*;
     (
-        diesel::insert_into(schema::events::table)
+        diesel::insert_into(schema::events_partition::table)
             .values(items_to_insert)
-            .on_conflict((transaction_version, event_index))
+            .on_conflict((transaction_version, event_index, runner_id))
             .do_update()
             .set((
                 inserted_at.eq(excluded(inserted_at)),

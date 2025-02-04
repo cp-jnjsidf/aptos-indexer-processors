@@ -222,6 +222,26 @@ CREATE TABLE events (
   ),
   CONSTRAINT fk_transaction_versions FOREIGN KEY (transaction_version) REFERENCES transactions (version)
 );
+
+CREATE TABLE events_partition (
+  sequence_number BIGINT NOT NULL,
+  creation_number BIGINT NOT NULL,
+  account_address VARCHAR(66) NOT NULL,
+  transaction_version BIGINT NOT NULL,
+  transaction_block_height BIGINT NOT NULL,
+  type TEXT NOT NULL,
+  data jsonb NOT NULL,
+  inserted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  runner_id BIGINT NOT NULL,
+  -- Constraints
+  PRIMARY KEY (
+    account_address,
+    creation_number,
+    sequence_number
+  ),
+  CONSTRAINT fk_transaction_versions FOREIGN KEY (transaction_version) REFERENCES transactions (version)
+);
+
 CREATE INDEX ev_addr_type_index ON events (account_address);
 CREATE INDEX ev_insat_index ON events (inserted_at);
 -- write set changes

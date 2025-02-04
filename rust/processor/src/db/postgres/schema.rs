@@ -767,6 +767,25 @@ diesel::table! {
 }
 
 diesel::table! {
+    events_partition (transaction_version, event_index) {
+        sequence_number -> Int8,
+        creation_number -> Int8,
+        #[max_length = 66]
+        account_address -> Varchar,
+        transaction_version -> Int8,
+        transaction_block_height -> Int8,
+        #[sql_name = "type"]
+        type_ -> Text,
+        data -> Jsonb,
+        inserted_at -> Timestamp,
+        event_index -> Int8,
+        #[max_length = 300]
+        indexed_type -> Varchar,
+        runner_id -> Int8,
+    }
+}
+
+diesel::table! {
     fungible_asset_activities (transaction_version, event_index) {
         transaction_version -> Int8,
         event_index -> Int8,
@@ -1285,30 +1304,15 @@ diesel::table! {
 diesel::table! {
     change_resources_partition (transaction_version, change_index) {
         transaction_version -> Int8,
-        transaction_block_height -> Int8,
         change_index -> Int8,
-        #[max_length = 66]
-        transaction_hash -> Varchar,
         transaction_timestamp -> Timestamp,
-        #[max_length = 66]
-        transaction_sender -> Nullable<Varchar>,
-        transaction_entry_function_id_str -> Nullable<Text>,
-        is_transaction_success -> Bool,
-        #[max_length = 66]
-        state_key_hash -> Varchar,
-        is_delete -> Bool,
         #[max_length = 66]
         address -> Varchar,
         resource_type -> Varchar,
-        data -> Nullable<Jsonb>,
         prev_transaction_version -> Nullable<Int8>,
         prev_change_index -> Nullable<Int8>,
-        prev_is_delete -> Nullable<diesel::sql_types::Bool>,
-        prev_data -> Nullable<Jsonb>,
         next_transaction_version -> Nullable<Int8>,
         next_change_index -> Nullable<Int8>,
-        next_is_delete -> Nullable<diesel::sql_types::Bool>,
-        next_data -> Nullable<Jsonb>,
         inserted_at -> Timestamp,
         runner_id -> Int8
     }
@@ -1317,32 +1321,15 @@ diesel::table! {
 diesel::table! {
     change_table_items_partition (transaction_version, change_index) {
         transaction_version -> Int8,
-        transaction_block_height -> Int8,
         change_index -> Int8,
-        #[max_length = 66]
-        transaction_hash -> Varchar,
         transaction_timestamp -> Timestamp,
         #[max_length = 66]
-        transaction_sender -> Nullable<Varchar>,
-        transaction_entry_function_id_str -> Nullable<Text>,
-        is_transaction_success -> Bool,
-        #[max_length = 66]
-        state_key_hash -> Varchar,
-        is_delete -> Bool,
-        #[max_length = 66]
         table_handle -> Varchar,
-        key_type -> Varchar,
         key -> Jsonb,
-        value_type -> Nullable<Varchar>,
-        value -> Nullable<Jsonb>,
         prev_transaction_version -> Nullable<Int8>,
         prev_change_index -> Nullable<Int8>,
-        prev_is_delete -> Nullable<diesel::sql_types::Bool>,
-        prev_value -> Nullable<Jsonb>,
         next_transaction_version -> Nullable<Int8>,
         next_change_index -> Nullable<Int8>,
-        next_is_delete -> Nullable<diesel::sql_types::Bool>,
-        next_value -> Nullable<Jsonb>,
         inserted_at -> Timestamp,
         runner_id -> Int8
     }

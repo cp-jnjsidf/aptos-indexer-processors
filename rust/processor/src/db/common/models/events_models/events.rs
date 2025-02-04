@@ -4,19 +4,20 @@
 #![allow(clippy::extra_unused_lifetimes)]
 
 use crate::{
-    schema::events,
+    schema::events_partition,
     utils::util::{standardize_address, truncate_str},
 };
 use aptos_protos::transaction::v1::Event as EventPB;
 use field_count::FieldCount;
 use serde::{Deserialize, Serialize};
+use std::env;
 
 // p99 currently is 303 so using 300 as a safe max length
 const EVENT_TYPE_MAX_LENGTH: usize = 300;
 
 #[derive(Clone, Debug, Deserialize, FieldCount, Identifiable, Insertable, Serialize)]
 #[diesel(primary_key(transaction_version, event_index))]
-#[diesel(table_name = events)]
+#[diesel(table_name = events_partition)]
 pub struct Event {
     pub sequence_number: i64,
     pub creation_number: i64,
@@ -27,6 +28,7 @@ pub struct Event {
     pub data: serde_json::Value,
     pub event_index: i64,
     pub indexed_type: String,
+    pub runner_id: i64,
 }
 
 impl Event {
@@ -36,6 +38,10 @@ impl Event {
         transaction_block_height: i64,
         event_index: i64,
     ) -> Self {
+        let runner_id: i32 = env::var("RUNNER_ID")
+        .unwrap_or("0".to_string()) // Default to "0" if the environment variable is not set
+        .parse()
+        .unwrap_or(0); 
         let t: &str = event.type_str.as_ref();
         Event {
             account_address: standardize_address(
@@ -49,6 +55,7 @@ impl Event {
             data: serde_json::from_str(event.data.as_str()).unwrap(),
             event_index,
             indexed_type: truncate_str(t, EVENT_TYPE_MAX_LENGTH),
+            runner_id: runner_id as i64
         }
     }
 
